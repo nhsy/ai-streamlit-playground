@@ -43,7 +43,8 @@ def load_templates():
         "Rewrite Professionally": "Rewrite the following text to sound more professional:",
         "Explain to a 5-year old": "Explain the following text as if I am 5 years old:",
         "Translate to Spanish": "Translate the following text to Spanish:",
-        "Extract Keywords": "Extract the main keywords from the following text:"
+        "Extract Keywords": "Extract the main keywords from the following text:",
+        "Rewrite as a DevOps SME": "Rewrite the following text as a DevOps SME:"        
     }
     
     # Load custom templates from 'templates' folder
@@ -86,6 +87,29 @@ with st.sidebar:
         st.error(f"Could not connect to Ollama. Make sure it is running. Error: {e}")
         selected_model = None
 
+    st.divider()
+    
+    # Model Parameters
+    temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1, help="Controls randomness: higher values make outputs more random, lower values more deterministic.")
+    top_p = st.slider("Top P", min_value=0.0, max_value=1.0, value=0.9, step=0.1, help="Controls diversity via nucleus sampling.")
+
+    st.divider()
+
+    # System Prompt
+    system_prompt = st.text_area("System Prompt", value="", placeholder="You are a helpful assistant...", help="Instructions that apply to the entire conversation.")
+
+    st.divider()
+
+    # File Uploader
+    uploaded_files = st.file_uploader("Upload context files", type=["txt", "md", "py", "json", "yml", "yaml"], accept_multiple_files=True)
+
+
+def read_uploaded_file(uploaded_file):
+    try:
+        return uploaded_file.getvalue().decode("utf-8")
+    except Exception as e:
+        return f"[Error reading {uploaded_file.name}: {e}]"
+
 # Chat Mode
 if mode == "Chat":
     st.subheader("Chat Interface")
@@ -106,6 +130,17 @@ if mode == "Chat":
         # Process prompt aliases
         processed_prompt = process_prompt(prompt)
 
+        # Append uploaded files content if any
+        if uploaded_files:
+            file_contents = "\n\n--- Uploaded Files ---\n"
+            for uploaded_file in uploaded_files:
+                content = read_uploaded_file(uploaded_file)
+                file_contents += f"\nFile: {uploaded_file.name}\nContent:\n{content}\n"
+            file_contents += "\n----------------------\n"
+            processed_prompt += file_contents
+            # Also show in UI that files were attached
+            prompt += f" *({len(uploaded_files)} files attached)*"
+
         # Add user message to chat history
         st.session_state["messages"].append({"role": "user", "content": prompt}) # Show original prompt
         
@@ -119,19 +154,34 @@ if mode == "Chat":
             full_response = ""
             
             try:
+                # Prepare messages with system prompt if exists
+                messages_payload = []
+                if system_prompt:
+                    messages_payload.append({"role": "system", "content": system_prompt})
+                
+                # Reconstruct history with processing
+                # Note: We are re-processing history here. In a real app we might cache this.
+                # For the current message, we use the already processed version with file content.
+                
+                # Add history
+                # We need to be careful not to re-process the current message again from st.session_state if we haven't saved the processed version there.
+                # In this flow: 
+                # 1. We saved 'prompt' (original) to session_state
+                # 2. We have 'processed_prompt' (expanded) for the current turn.
+                
+                for m in st.session_state["messages"][:-1]:
+                    messages_payload.append({"role": m["role"], "content": process_prompt(m["content"])})
+                
+                messages_payload.append({"role": "user", "content": processed_prompt})
+
                 stream = ollama.chat(
                     model=selected_model,
-                    # We send the processed prompt to the model, but keep history consistent
-                    # NOTE: Here we iterate history. If previous messages had syntax, they were already processed/consumed.
-                    # But for correct context, we should ideally store the processed version or re-process.
-                    # For simplicity, we just process the CURRENT message. 
-                    # A robust app might store both 'display' and 'actual' content.
-                    # Here we construct the messages list dynamically.
-                    messages=[
-                        {"role": m["role"], "content": process_prompt(m["content"])} 
-                        for m in st.session_state["messages"][:-1]
-                    ] + [{"role": "user", "content": processed_prompt}],
+                    messages=messages_payload,
                     stream=True,
+                    options={
+                        "temperature": temperature,
+                        "top_p": top_p,
+                    }
                 )
                 
                 for chunk in stream:
@@ -173,10 +223,20 @@ elif mode == "Text Transformation":
                     response_placeholder = st.empty()
                     full_response = ""
                     
+                    # Prepare messages
+                    messages_payload = []
+                    if system_prompt:
+                        messages_payload.append({"role": "system", "content": system_prompt})
+                    messages_payload.append({"role": "user", "content": prompt})
+
                     stream = ollama.chat(
                         model=selected_model,
-                        messages=[{"role": "user", "content": prompt}],
+                        messages=messages_payload,
                         stream=True,
+                        options={
+                            "temperature": temperature,
+                            "top_p": top_p,
+                        }
                     )
                     
                     for chunk in stream:
