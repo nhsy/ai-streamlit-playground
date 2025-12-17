@@ -6,27 +6,33 @@ tasks:
     cmds:
       - task --list
 
-  check-ollama:
+  ollama:check:
     desc: Check if Ollama is running
     cmds:
       - 'curl -s http://localhost:11434 > /dev/null || (echo "Error: Ollama is not running. Please start Ollama." && exit 1)'
     silent: true
 
-  stop-ollama:
+  ollama:stop:
     desc: Stop Ollama service via Homebrew
     cmds:
       - brew services stop ollama
 
-  start-ollama:
+  ollama:start:
     desc: Start Ollama service via Homebrew
     cmds:
       - brew services start ollama
 
-  restart-ollama:
+  ollama:restart:
     desc: Restart Ollama service via Homebrew
     cmds:
-      - task: stop-ollama
-      - task: start-ollama
+      - task: ollama:stop
+      - task: ollama:start
+
+  install:model:
+    desc: Pull the required Ollama model
+    deps: [ollama:check]
+    cmds:
+      - ollama pull mistral-nemo:latest
 
   install:
     desc: Install Python dependencies
@@ -35,7 +41,7 @@ tasks:
 
   run:
     desc: Run the Streamlit app locally
-    deps: [check-ollama]
+    deps: [ollama:check]
     cmds:
       - source .venv/bin/activate && streamlit run app.py
 
@@ -52,7 +58,7 @@ tasks:
 
   docker:up:
     desc: Run the Docker container
-    deps: [check-ollama]
+    deps: [ollama:check]
     cmds:
       - docker-compose up
 

@@ -6,6 +6,7 @@ import streamlit as st
 import ollama
 import os
 import re
+import json
 
 def process_prompt(text):
     """
@@ -39,18 +40,16 @@ def process_prompt(text):
     return text
 
 def load_templates():
-    """Load templates from code and filesystem."""
-    # Default templates
-    templates = {
-        "Summarize": "Summarize the following text:",
-        "Fix Grammar": "Fix the grammar and spelling in the following text:",
-        "Rewrite Professionally": "Rewrite the following text to sound more professional:",
-        "Explain to a 5-year old": "Explain the following text as if I am 5 years old:",
-        "Translate to Spanish": "Translate the following text to Spanish:",
-        "Extract Keywords": "Extract the main keywords from the following text:",
-        "Rewrite as a DevOps SME": "Rewrite the following text as a DevOps SME:",
-        "Rewrite as a HashiCorp SME": "Rewrite the following text as a HashiCorp SME:"    
-    }
+    """Load templates from json config and filesystem."""
+    # Load templates from JSON config
+    templates = {}
+    config_path = "template_config.json"
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                templates = json.load(f)
+        except Exception as e:
+            st.error(f"Error loading {config_path}: {e}")
     
     # Load custom templates from 'templates' folder
     template_dir = "templates"

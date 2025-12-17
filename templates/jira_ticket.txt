@@ -1,7 +1,27 @@
-Generate a JIRA Ticket for the following request. The output must include these sections:
+Generate a comprehensive JIRA Story for the following request. The output should be structured as follows:
 
-Scope:
+**Title**: [Concise summary]
 
-Tasks:
+**User Story**:
+As a [Role],
+I want [Feature/Capability],
+So that [Benefit/Value].
 
-Deliverables:
+**Goal**:
+[Primary objective]
+
+**Context**:
+[Background information or business driver]
+
+**Scope**:
+[What is in and out of scope]
+
+**Acceptance Criteria**:
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+
+**Technical Tasks**:
+- [ ] [Task 1]
+- [ ] [Task 2]
+
+**Estimated Effort**: [Story Points/T-Shirt Size]

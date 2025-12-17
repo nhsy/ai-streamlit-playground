@@ -40,6 +40,7 @@ If you installed Ollama via Homebrew, you can manage the service with:
 This project uses [Task](https://taskfile.dev/) to automate common commands.
 
 -   **Install dependencies**: `task install`
+-   **Install Model**: `task install:model`
 -   **Run locally**: `task run`
 -   **Run tests**: `task test`
 -   **Build Docker**: `task docker:build`

@@ -77,13 +77,13 @@ def test_prompt_file_expansion(mock_ollama):
     at.sidebar.selectbox[0].select("Chat").run()
 
     # Input with file reference
-    at.chat_input[0].set_value("Hello @[templates/signature.txt]").run()
+    at.chat_input[0].set_value("Hello @[templates/email.txt]").run()
 
     # Verify mock called with expanded text
     mock_chat.assert_called()
     last_message = mock_chat.call_args[1]['messages'][-1]['content']
     assert "Hello" in last_message
-    assert "Streamlit AI Assistant" in last_message # Content from signature.txt
+    assert "professional email" in last_message # Content from email.txt
     assert "@[" not in last_message # Should be fully expanded
 
 def test_transformation_execution(mock_ollama):

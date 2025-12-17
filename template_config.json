@@ -1,0 +1,10 @@
+{
+    "Summarize": "Summarize the following text:",
+    "Fix Grammar": "Fix the grammar and spelling in the following text:",
+    "Rewrite Professionally": "Rewrite the following text to sound more professional:",
+    "Explain to a 5-year old": "Explain the following text as if I am 5 years old:",
+    "Translate to Spanish": "Translate the following text to Spanish:",
+    "Extract Keywords": "Extract the main keywords from the following text:",
+    "Rewrite as a DevOps SME": "Rewrite the following text as a DevOps SME:",
+    "Rewrite as a HashiCorp SME": "Rewrite the following text as a HashiCorp SME:"
+}
