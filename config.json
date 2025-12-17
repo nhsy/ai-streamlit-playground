@@ -1,6 +1,4 @@
 {
-    "default_provider": "ollama",
-    "default_model": "mistral-nemo:latest",
     "providers": {
         "ollama": {
             "default_model": "mistral-nemo:latest"
