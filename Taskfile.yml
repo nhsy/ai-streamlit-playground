@@ -12,6 +12,22 @@ tasks:
       - 'curl -s http://localhost:11434 > /dev/null || (echo "Error: Ollama is not running. Please start Ollama." && exit 1)'
     silent: true
 
+  stop-ollama:
+    desc: Stop Ollama service via Homebrew
+    cmds:
+      - brew services stop ollama
+
+  start-ollama:
+    desc: Start Ollama service via Homebrew
+    cmds:
+      - brew services start ollama
+
+  restart-ollama:
+    desc: Restart Ollama service via Homebrew
+    cmds:
+      - task: stop-ollama
+      - task: start-ollama
+
   install:
     desc: Install Python dependencies
     cmds:

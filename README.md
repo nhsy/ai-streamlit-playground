@@ -7,6 +7,13 @@ This is a Streamlit application that interfaces with a local Ollama instance.
 - [Docker](https://www.docker.com/) installed on your machine.
 - [Ollama](https://ollama.com/) running on your host machine.
 
+## Installation
+
+To install Ollama using Homebrew:
+
+```bash
+brew install ollama
+```
 
 ## Managing Ollama
 

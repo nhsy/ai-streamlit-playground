@@ -44,7 +44,8 @@ def load_templates():
         "Explain to a 5-year old": "Explain the following text as if I am 5 years old:",
         "Translate to Spanish": "Translate the following text to Spanish:",
         "Extract Keywords": "Extract the main keywords from the following text:",
-        "Rewrite as a DevOps SME": "Rewrite the following text as a DevOps SME:"        
+        "Rewrite as a DevOps SME": "Rewrite the following text as a DevOps SME:",
+        "Rewrite as a HashiCorp SME": "Rewrite the following text as a HashiCorp SME:"    
     }
     
     # Load custom templates from 'templates' folder
@@ -122,7 +123,7 @@ if mode == "Chat":
             st.markdown(message["content"])
 
     # Accept user input
-    if prompt := st.chat_input("What is up?"):
+    if prompt := st.chat_input("Enter text"):
         if not selected_model:
             st.error("Please select a model to continue.")
             st.stop()
