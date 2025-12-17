@@ -6,15 +6,18 @@ from streamlit.testing.v1 import AppTest
 
 # Mock dependencies to avoid actual API calls (reusing logic from test_app.py)
 @pytest.fixture
-def mock_ollama():
-    """Mock the ollama library."""
+def mock_app_env():
+    """Mock the app environment."""
     with patch('ollama.list') as mock_list, \
-         patch('ollama.chat') as mock_chat:
+         patch('ollama.chat') as mock_chat, \
+         patch('providers.watsonx_provider.WatsonxProvider.is_available') as mock_wx_avail, \
+         patch.dict('os.environ', {"OLLAMA_ENABLED": "true"}):
         mock_list.return_value = {'models': [{'model': 'llama3'}]}
+        mock_wx_avail.return_value = False
         mock_chat.return_value = iter([]) # Empty stream
         yield mock_list, mock_chat
 
-def test_json_config_templates_loaded(mock_ollama):
+def test_json_config_templates_loaded(mock_app_env):
     """Verify that templates defined in template_config.json are available."""
     at = AppTest.from_file("app.py").run()
 
@@ -35,7 +38,7 @@ def test_json_config_templates_loaded(mock_ollama):
     for template in expected_templates:
         assert template in options
 
-def test_template_text_correctness(mock_ollama):
+def test_template_text_correctness(mock_app_env):
     """Verify that selecting a JSON template loads the correct prompt text."""
     at = AppTest.from_file("app.py").run()
     at.sidebar.selectbox[0].select("Text Transformation").run()
@@ -53,7 +56,7 @@ def test_template_text_correctness(mock_ollama):
     at.button[0].click().run()
 
     # Verify mock call arguments
-    _, mock_chat = mock_ollama
+    _, mock_chat = mock_app_env
     call_args = mock_chat.call_args[1]
     sent_content = call_args['messages'][0]['content']
 

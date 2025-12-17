@@ -4,14 +4,17 @@ from unittest.mock import patch
 import pytest
 from streamlit.testing.v1 import AppTest
 
-# Mock the ollama library at the top level so it doesn't try to connect during import/execution
+# Mock the ollama library and watsonx provider
 @pytest.fixture
-def mock_ollama():
+def mock_app_env():
     with patch('ollama.list') as mock_list, \
-         patch('ollama.chat') as mock_chat:
+         patch('ollama.chat') as mock_chat, \
+         patch('providers.watsonx_provider.WatsonxProvider.is_available') as mock_wx_avail, \
+         patch.dict('os.environ', {"OLLAMA_ENABLED": "true"}):
 
         # Setup default mock behavior
         mock_list.return_value = {'models': [{'model': 'llama3'}, {'model': 'mistral'}]}
+        mock_wx_avail.return_value = False # Keep watsonx disabled by default for these tests
 
         # Mock chat to return a generator for streaming
         def stream_response(*args, **kwargs):
@@ -22,26 +25,27 @@ def mock_ollama():
 
         yield mock_list, mock_chat
 
-def test_app_starts_smoke_test(mock_ollama):
+def test_app_starts_smoke_test(mock_app_env):
     """Test that the app starts up without errors."""
     at = AppTest.from_file("app.py").run()
     assert not at.exception
     assert "Ollama Playground" in at.title[0].value
 
-def test_sidebar_defaults(mock_ollama):
+def test_sidebar_defaults(mock_app_env):
     """Test sidebar loads with defaults."""
     at = AppTest.from_file("app.py").run()
 
     # Check default mode is Chat
-    # Note: Streamlit test API for selectbox might need index or value check
-    # We can check specific session state or UI presence
     assert at.sidebar.selectbox[0].value == "Chat"
 
-    # Check model selector is populated (mocked)
-    # The second selectbox in sidebar is model selector
-    assert at.sidebar.selectbox[1].options == ["llama3", "mistral"]
+    # Check provider selector exists
+    assert at.sidebar.selectbox[1].value == "Ollama (Local)"
 
-def test_switch_to_transformation_mode(mock_ollama):
+    # Check model selector is populated (mocked)
+    # The third selectbox in sidebar is model selector
+    assert at.sidebar.selectbox[2].options == ["llama3", "mistral"]
+
+def test_switch_to_transformation_mode(mock_app_env):
     """Test switching modes changes the UI."""
     at = AppTest.from_file("app.py").run()
 
@@ -54,9 +58,9 @@ def test_switch_to_transformation_mode(mock_ollama):
 
     # Should have a template selector and text area
     assert len(at.selectbox) >= 1 # Template selector in main area
-    assert len(at.text_area) >= 1  # Input area
+    assert len(at.text_area) >= 2  # System Prompt (sidebar) + Input area (main)
 
-def test_custom_template_load(mock_ollama):
+def test_custom_template_load(mock_app_env):
     """Test that custom templates from filesystem are loaded."""
     at = AppTest.from_file("app.py").run()
 
@@ -68,9 +72,9 @@ def test_custom_template_load(mock_ollama):
     template_options = at.selectbox[0].options
     assert "Email" in template_options
 
-def test_prompt_file_expansion(mock_ollama):
+def test_prompt_file_expansion(mock_app_env):
     """Test standard prompt file expansion @[path]."""
-    _, mock_chat = mock_ollama
+    _, mock_chat = mock_app_env
     at = AppTest.from_file("app.py").run()
 
     # Use Chat Mode
@@ -86,9 +90,9 @@ def test_prompt_file_expansion(mock_ollama):
     assert "professional email" in last_message # Content from email.txt
     assert "@[" not in last_message # Should be fully expanded
 
-def test_transformation_execution(mock_ollama):
+def test_transformation_execution(mock_app_env):
     """Test running a transformation."""
-    _, mock_chat = mock_ollama
+    _, mock_chat = mock_app_env
 
     at = AppTest.from_file("app.py").run()
 
@@ -98,11 +102,13 @@ def test_transformation_execution(mock_ollama):
     # Select a template
     at.selectbox[0].select("Summarize").run()
 
-    # Enter text
-    at.text_area[0].input("Execute this text").run()
+    # Enter text (Find correct text area by label)
+    txt_area = next(t for t in at.text_area if t.label == "Enter text to transform:")
+    txt_area.input("Execute this text").run()
 
-    # Click Transform
-    at.button[0].click().run()
+    # Click Transform (Find button by label)
+    btn_transform = next(b for b in at.button if b.label == "Transform")
+    btn_transform.click().run()
 
     # Verify mock was called
     mock_chat.assert_called()
@@ -114,9 +120,9 @@ def test_transformation_execution(mock_ollama):
     # Verify output
     assert "This is a mock response." in at.markdown[1].value # Result markdown
 
-def test_chat_execution(mock_ollama):
+def test_chat_execution(mock_app_env):
     """Test sending a chat message."""
-    _, mock_chat = mock_ollama
+    _, mock_chat = mock_app_env
 
     at = AppTest.from_file("app.py").run()
 
@@ -134,3 +140,33 @@ def test_chat_execution(mock_ollama):
     assert len(at.session_state["messages"]) == 2 # User + Assistant
     assert at.session_state["messages"][0]["role"] == "user"
     assert at.session_state["messages"][1]["role"] == "assistant"
+
+def test_reset_functionality(mock_app_env):
+    """Test that resetting clears text boxes and uploader keys."""
+    at = AppTest.from_file("app.py").run()
+
+    # Chat Mode Reset
+    # Set system prompt
+    sp_area = next(t for t in at.text_area if t.label == "System Prompt")
+    sp_area.input("System prompt content").run()
+    assert at.session_state["system_prompt_input"] == "System prompt content"
+
+    # Click Reset
+    btn_reset = next(b for b in at.button if b.label == "🗑️ Reset")
+    btn_reset.click().run()
+    assert at.session_state["system_prompt_input"] == ""
+    assert at.session_state["uploader_key"] == 1
+
+    # Switch to Text Transformation
+    at.sidebar.selectbox[0].select("Text Transformation").run()
+
+    # Set transformation text
+    tr_area = next(t for t in at.text_area if t.label == "Enter text to transform:")
+    tr_area.input("Text to transform").run()
+    assert at.session_state["transformation_text"] == "Text to transform"
+
+    # Click Reset
+    btn_reset_tr = next(b for b in at.button if b.label == "🗑️ Reset")
+    btn_reset_tr.click().run()
+    assert at.session_state["transformation_text"] == ""
+    assert at.session_state["uploader_key"] == 2

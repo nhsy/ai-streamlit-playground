@@ -1,5 +1,14 @@
 {
+    "default_provider": "ollama",
     "default_model": "mistral-nemo:latest",
+    "providers": {
+        "ollama": {
+            "default_model": "mistral-nemo:latest"
+        },
+        "watsonx": {
+            "default_model": "meta-llama/llama-3-3-70b-instruct"
+        }
+    },
     "templates": {
         "Summarize": "Summarize the following text:",
         "Fix Grammar": "Fix the grammar and spelling in the following text:",

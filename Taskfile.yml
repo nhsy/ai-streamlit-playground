@@ -1,5 +1,7 @@
 version: '3'
 
+dotenv: [".env"]
+
 tasks:
   default:
     desc: List all available tasks
@@ -9,7 +11,12 @@ tasks:
   ollama:check:
     desc: Check if Ollama is running
     cmds:
-      - 'curl -s http://localhost:11434 > /dev/null || (echo "Error: Ollama is not running. Please start Ollama." && exit 1)'
+      - |
+        if [ "${OLLAMA_ENABLED}" = "false" ]; then
+          echo "Ollama is disabled via OLLAMA_ENABLED=false. Skipping check."
+        else
+          curl -s http://localhost:11434 > /dev/null || (echo "Error: Ollama is not running. Please start Ollama." && exit 1)
+        fi
     silent: true
 
   ollama:stop:
@@ -49,7 +56,7 @@ tasks:
     desc: Run tests
     cmds:
       - source .venv/bin/activate && pylint **/*.py
-      - source .venv/bin/activate && pytest -v ./tests
+      - source .venv/bin/activate && PYTHONPATH=. pytest -v ./tests
 
   docker:build:
     desc: Build the Docker container

@@ -3,3 +3,5 @@ ollama==0.6.1
 pytest==8.0.0
 pylint
 pypdf
+ibm-watsonx-ai>=0.2.0
+python-dotenv>=1.0.0
