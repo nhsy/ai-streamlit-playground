@@ -1,3 +1,7 @@
+"""
+Ollama Streamlit Playground
+A Streamlit app to interact with Ollama models.
+"""
 import streamlit as st
 import ollama
 import os

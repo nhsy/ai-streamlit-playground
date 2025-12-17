@@ -42,6 +42,7 @@ tasks:
   test:
     desc: Run tests
     cmds:
+      - source .venv/bin/activate && pylint **/*.py
       - source .venv/bin/activate && pytest -v ./tests
 
   docker:build:
