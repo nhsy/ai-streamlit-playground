@@ -40,17 +40,26 @@ def process_prompt(text):
         
     return text
 
-def load_templates():
-    """Load templates from json config and filesystem."""
-    # Load templates from JSON config
-    templates = {}
-    config_path = "template_config.json"
+def load_config():
+    """Load configuration from config.json."""
+    config_path = "config.json"
+    config = {"default_model": None, "templates": {}}
+    
     if os.path.exists(config_path):
         try:
             with open(config_path, "r") as f:
-                templates = json.load(f)
+                loaded_config = json.load(f)
+                config["default_model"] = loaded_config.get("default_model")
+                config["templates"] = loaded_config.get("templates", {})
         except Exception as e:
             st.error(f"Error loading {config_path}: {e}")
+    
+    return config
+
+def load_templates():
+    """Load templates from json config and filesystem."""
+    config = load_config()
+    templates = config["templates"].copy()
     
     # Load custom templates from 'templates' folder
     template_dir = "templates"
@@ -78,16 +87,26 @@ with st.sidebar:
     mode = st.selectbox("App Mode", ["Chat", "Text Transformation"])
     st.divider()
 
+    # Load config to get default model
+    config = load_config()
+    default_model = config["default_model"]
+    
     try:
         models_info = ollama.list()
         # Adjust based on the actual structure of the response from ollama.list()
         # The library usually returns a dict with 'models' key which is a list of objects
         model_names = [m['model'] for m in models_info['models']]
+        
         if not model_names:
             st.warning("No models found. Please run `ollama pull <model>` in your terminal.")
             selected_model = None
         else:
-            selected_model = st.selectbox("Select a model", model_names)
+            # Try to use default model if it exists in available models
+            default_index = 0
+            if default_model and default_model in model_names:
+                default_index = model_names.index(default_model)
+            
+            selected_model = st.selectbox("Select a model", model_names, index=default_index)
     except Exception as e:
         st.error(f"Could not connect to Ollama. Make sure it is running. Error: {e}")
         selected_model = None
@@ -103,7 +122,7 @@ with st.sidebar:
     # System Prompt
     system_prompt = st.text_area("System Prompt", value="", placeholder="You are a helpful assistant...", help="Instructions that apply to the entire conversation.")
 
-
+    st.divider()
 
 
 def read_uploaded_file(uploaded_file):
@@ -130,6 +149,11 @@ if mode == "Chat":
         accept_multiple_files=True,
         help="Upload files to provide additional context for your chat"
     )
+    
+    # Clear chat button
+    if st.button("🗑️ Clear Chat History"):
+        st.session_state["messages"] = []
+        st.rerun()
     
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
@@ -230,9 +254,25 @@ elif mode == "Text Transformation":
     
     selected_template = st.selectbox("Choose a transformation template", list(templates.keys()))
     
-    user_text = st.text_area("Enter text to transform:", height=200)
+    # Initialize session state for transformation text if not exists
+    if "transformation_text" not in st.session_state:
+        st.session_state["transformation_text"] = ""
     
-    if st.button("Transform"):
+    user_text = st.text_area("Enter text to transform:", height=200, value=st.session_state["transformation_text"], key="text_input")
+    
+    # Update session state when text changes
+    st.session_state["transformation_text"] = user_text
+    
+    # Buttons in columns
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        transform_button = st.button("Transform", use_container_width=True)
+    with col2:
+        if st.button("🗑️ Reset Inputs", use_container_width=True):
+            st.session_state["transformation_text"] = ""
+            st.rerun()
+    
+    if transform_button:
         if not selected_model:
             st.error("Please select a model first.")
         elif not user_text:

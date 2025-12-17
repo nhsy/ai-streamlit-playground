@@ -20,8 +20,4 @@ So that [Benefit/Value].
 - [ ] [Criterion 1]
 - [ ] [Criterion 2]
 
-**Technical Tasks**:
-- [ ] [Task 1]
-- [ ] [Task 2]
-
-**Estimated Effort**: [Story Points/T-Shirt Size]
+**Estimated Effort**: [T-Shirt Size]
