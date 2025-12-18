@@ -1,5 +1,5 @@
 """
-Ollama Streamlit Playground
+AI Streamlit Playground
 A Streamlit app to interact with Ollama and watsonx models.
 """
 import streamlit as st
@@ -76,9 +76,9 @@ def load_templates():
 
     return templates
 
-st.set_page_config(page_title="Ollama Playground", page_icon="🦙")
+st.set_page_config(page_title="AI Streamlit Playground")
 
-st.title("🦙 Ollama Playground")
+st.title("AI Streamlit Playground")
 
 # Sidebar for configuration
 if "uploader_key" not in st.session_state:
@@ -309,15 +309,6 @@ if mode == "Chat":
 elif mode == "Text Transformation":
     st.subheader("Text Transformation")
 
-    # File Uploader in main content area
-    uploaded_files = st.file_uploader(
-        "📎 Upload context files (PDF, TXT, CSV, etc.)",
-        type=["txt", "md", "py", "json", "yml", "yaml", "csv", "pdf"],
-        accept_multiple_files=True,
-        help="Upload files to provide additional context for transformation",
-        key=f"transform_uploader_{st.session_state['uploader_key']}"
-    )
-
     templates = load_templates()
 
     selected_template = st.selectbox("Choose a transformation template", list(templates.keys()))
@@ -341,7 +332,7 @@ elif mode == "Text Transformation":
     with col1:
         transform_button = st.button("Transform", use_container_width=True)
     with col2:
-        if st.button("🗑️ Reset", use_container_width=True, help="Clear input text, system prompt, and uploaded files"):
+        if st.button("🗑️ Reset", use_container_width=True, help="Clear input text and system prompt"):
             st.session_state["transformation_text"] = ""
             st.session_state["system_prompt_input"] = ""
             st.session_state["uploader_key"] += 1
@@ -360,15 +351,6 @@ elif mode == "Text Transformation":
                     processed_user_text = process_prompt(user_text)
 
                     prompt = f"{template_text}\n\n{processed_user_text}"
-
-                    # Append uploaded files content if any
-                    if uploaded_files:
-                        file_contents = "\n\n--- Uploaded Files ---\n"
-                        for uploaded_file in uploaded_files:
-                            content = read_uploaded_file(uploaded_file)
-                            file_contents += f"\nFile: {uploaded_file.name}\nContent:\n{content}\n"
-                        file_contents += "\n----------------------\n"
-                        prompt += file_contents
 
                     response_placeholder = st.empty()
                     full_response = ""

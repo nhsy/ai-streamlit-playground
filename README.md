@@ -1,6 +1,6 @@
-# Ollama Streamlit Playground
+# AI Streamlit Playground
 
-![Build Status](https://github.com/nhsy/ollama-streamlit-demo/actions/workflows/test.yml/badge.svg)
+![Build Status](https://github.com/nhsy/ai-streamlit-playground/actions/workflows/test.yml/badge.svg)
 
 This is a Streamlit application that interfaces with local Ollama models and IBM watsonx.ai cloud models.
 
@@ -164,7 +164,7 @@ Configure default models and templates:
       "default_model": "mistral-nemo:latest"
     },
     "watsonx": {
-      "default_model": "ibm/granite-13b-chat-v2"
+      "default_model": "meta-llama/llama-3-3-70b-instruct"
     }
   },
   "templates": {
@@ -216,11 +216,4 @@ task test
 - **"watsonx credentials not configured"**: Check that `.env` file exists with valid credentials
 - **"No providers available"**: Ensure either Ollama is running OR watsonx credentials are configured
 - **Connection errors**: Verify your `WATSONX_URL` matches your IBM Cloud region
-
-## Security Notes
-
-- Never commit `.env` file to version control
-- Keep your `WATSONX_API_KEY` secure
-- Use environment variables in production deployments
-- The `.env` file is already in `.gitignore`
 

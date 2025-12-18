@@ -29,7 +29,7 @@ def test_app_starts_smoke_test(mock_app_env):
     """Test that the app starts up without errors."""
     at = AppTest.from_file("app.py").run()
     assert not at.exception
-    assert "Ollama Playground" in at.title[0].value
+    assert "AI Streamlit Playground" in at.title[0].value
 
 def test_sidebar_defaults(mock_app_env):
     """Test sidebar loads with defaults."""
