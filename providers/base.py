@@ -27,6 +27,18 @@ class LLMProvider(ABC):
             Exception: If provider is not available or connection fails
         """
 
+    def get_model_info(self, _model: str) -> Dict[str, Any]:
+        """
+        Get metadata for a specific model.
+
+        Args:
+            model: Model identifier
+
+        Returns:
+            Dict: Model metadata
+        """
+        return {}
+
     @abstractmethod
     def chat(
         self,

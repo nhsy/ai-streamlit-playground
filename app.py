@@ -2,10 +2,10 @@
 AI Streamlit Playground
 A Streamlit app to interact with Ollama and watsonx models.
 """
-import streamlit as st
+import json
 import os
 import re
-import json
+import streamlit as st
 import pypdf
 from dotenv import load_dotenv
 from providers import OllamaProvider, WatsonxProvider
@@ -28,9 +28,9 @@ def process_prompt(text):
         # We assume path is relative to current working directory.
         if os.path.exists(path):
             try:
-                with open(path, "r") as f:
+                with open(path, "r", encoding="utf-8") as f:
                     return f.read().strip()
-            except Exception:
+            except (OSError, IOError):
                 return f"[Error reading {path}]"
         else:
             return f"[File not found: {path}]"
@@ -50,9 +50,9 @@ def load_config():
 
     if os.path.exists(config_path):
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
+        except (json.JSONDecodeError, OSError) as e:
             st.error(f"Error loading {config_path}: {e}")
 
     return {"default_model": None, "templates": {}, "providers": {}}
@@ -69,9 +69,9 @@ def load_templates():
             if filename.endswith(".txt"):
                 template_name = os.path.splitext(filename)[0].replace("_", " ").title()
                 try:
-                    with open(os.path.join(template_dir, filename), "r") as f:
+                    with open(os.path.join(template_dir, filename), "r", encoding="utf-8") as f:
                         templates[template_name] = f.read().strip()
-                except Exception as e:
+                except (OSError, IOError) as e:
                     st.error(f"Error loading template {filename}: {e}")
 
     return templates
@@ -111,7 +111,8 @@ with st.sidebar:
         if not ollama_provider._enabled:
             st.info("**Ollama**: Disabled via OLLAMA_ENABLED environment variable.")
         else:
-            st.info("**Ollama**: Make sure Ollama is running locally and OLLAMA_ENABLED is not set to 'false'.")
+            st.info("**Ollama**: Make sure Ollama is running locally and "
+                    "OLLAMA_ENABLED is not set to 'false'.")
 
         st.info("**watsonx**: Set WATSONX_API_KEY and WATSONX_PROJECT_ID in .env file.")
 
@@ -147,7 +148,8 @@ with st.sidebar:
 
                 # Try provider-specific default first
                 provider_key = "ollama" if "Ollama" in selected_provider_name else "watsonx"
-                default_model = config.get("providers", {}).get(provider_key, {}).get("default_model")
+                provider_config = config.get("providers", {}).get(provider_key, {})
+                default_model = provider_config.get("default_model")
 
                 # Fallback to top-level default if provider-specific not found
                 if not default_model:
@@ -158,12 +160,88 @@ with st.sidebar:
                 if default_model and default_model in model_names:
                     default_index = model_names.index(default_model)
 
+                # Prepare help text for model selector
+                current_model = (st.session_state.get(f"selected_model_{selected_provider_name}")
+                                 or model_names[default_index])
+                model_help = f"Available models from {selected_provider_name}"
+
+                info = selected_provider.get_model_info(current_model)
+                if info:
+                    # Parse metadata with safe defaults
+                    size_gb = info.get('size', 0) / (1024**3)
+                    details = info.get('details', {})
+                    params = details.get('parameter_size', 'Unknown')
+                    quant = details.get('quantization_level', 'Unknown')
+                    family = details.get('family', 'Unknown')
+
+                    model_help = f"**{current_model}**\n\n"
+                    model_help += f"- **Size:** {size_gb:.2f} GB\n"
+                    model_help += f"- **Params:** {params}\n"
+                    model_help += f"- **Quant:** {quant}\n"
+                    model_help += f"- **Family:** {family}"
+                elif "Ollama" in selected_provider_name:
+                    model_help = "No additional metadata available for this model."
+
                 selected_model = st.selectbox(
                     "Select a model",
                     model_names,
                     index=default_index,
-                    help=f"Available models from {selected_provider_name}"
+                    help=model_help,
+                    key=f"selected_model_{selected_provider_name}"
                 )
+
+                # Add Pull Model feature for Ollama
+                if "Ollama" in selected_provider_name:
+                    with st.expander("📥 Pull New Model"):
+                        library_models = [
+                            "llama3.2:latest (3B)",
+                            "llama3.1:8b",
+                            "mistral-nemo:latest (12B)",
+                            "gemma2:9b",
+                            "phi3:medium (14B)",
+                            "qwen2.5:7b",
+                            "moondream:latest (Vision)",
+                            "Other (Enter name...)"
+                        ]
+
+                        selection = st.selectbox("Download from Library", library_models)
+
+                        if selection == "Other (Enter name...)":
+                            pull_target = st.text_input(
+                                "Enter model name",
+                                placeholder="e.g., llama3, mistral",
+                                key="pull_model_custom"
+                            ).strip()
+                        else:
+                            # Extract model name (e.g., "llama3.2:latest (3B)" -> "llama3.2:latest")
+                            pull_target = selection.split(" ")[0]
+
+                        if st.button("Pull Model", use_container_width=True):
+                            if pull_target:
+                                progress_bar = st.progress(0)
+                                status_text = st.empty()
+                                try:
+                                    # We know it's OllamaProvider here, but to be safe:
+                                    if hasattr(selected_provider, 'pull_model'):
+                                        for progress in selected_provider.pull_model(pull_target):
+                                            status = progress.get('status', '')
+                                            completed = progress.get('completed')
+                                            total = progress.get('total')
+
+                                            if completed and total:
+                                                percent = completed / total
+                                                progress_bar.progress(percent)
+                                                status_msg = f"Status: {status} ({percent:.1%})"
+                                                status_text.text(status_msg)
+                                            else:
+                                                status_text.text(f"Status: {status}")
+
+                                        st.success(f"Model '{pull_target}' pulled successfully!")
+                                        st.rerun()
+                                except Exception as e:
+                                    st.error(f"Error pulling model: {e}")
+                            else:
+                                st.warning("Please specify a model name.")
         except Exception as e:
             st.error(f"Error loading models: {e}")
             selected_model = None
@@ -171,8 +249,23 @@ with st.sidebar:
     st.divider()
 
     # Model Parameters
-    temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1, help="Controls randomness: higher values make outputs more random, lower values more deterministic.")
-    top_p = st.slider("Top P", min_value=0.0, max_value=1.0, value=0.9, step=0.1, help="Controls diversity via nucleus sampling.")
+    temperature = st.slider(
+        "Temperature",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.7,
+        step=0.1,
+        help="Controls randomness: higher values make outputs more random, "
+             "lower values more deterministic."
+    )
+    top_p = st.slider(
+        "Top P",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.9,
+        step=0.1,
+        help="Controls diversity via nucleus sampling."
+    )
 
     st.divider()
 
@@ -189,18 +282,18 @@ with st.sidebar:
     st.divider()
 
 
-def read_uploaded_file(uploaded_file):
+def read_uploaded_file(file):
+    """Read content from an uploaded file (PDF or text)."""
     try:
-        if uploaded_file.name.lower().endswith(".pdf"):
-            reader = pypdf.PdfReader(uploaded_file)
+        if file.name.lower().endswith(".pdf"):
+            reader = pypdf.PdfReader(file)
             text = ""
             for page in reader.pages:
                 text += page.extract_text() + "\n"
             return text
-        else:
-            return uploaded_file.getvalue().decode("utf-8")
+        return file.getvalue().decode("utf-8")
     except Exception as e:
-        return f"[Error reading {uploaded_file.name}: {e}]"
+        return f"[Error reading {file.name}: {e}]"
 
 # Chat Mode
 if mode == "Chat":
@@ -251,7 +344,8 @@ if mode == "Chat":
             prompt += f" *({len(uploaded_files)} files attached)*"
 
         # Add user message to chat history
-        st.session_state["messages"].append({"role": "user", "content": prompt}) # Show original prompt
+        # Add user message to chat history (save original prompt)
+        st.session_state["messages"].append({"role": "user", "content": prompt})
 
         # Display user message in chat message container
         with st.chat_message("user"):
@@ -273,13 +367,14 @@ if mode == "Chat":
                 # For the current message, we use the already processed version with file content.
 
                 # Add history
-                # We need to be careful not to re-process the current message again from st.session_state if we haven't saved the processed version there.
+                # Reconstruct history carefully to avoid double-processing
                 # In this flow:
                 # 1. We saved 'prompt' (original) to session_state
                 # 2. We have 'processed_prompt' (expanded) for the current turn.
 
                 for m in st.session_state["messages"][:-1]:
-                    messages_payload.append({"role": m["role"], "content": process_prompt(m["content"])})
+                    processed_content = process_prompt(m["content"])
+                    messages_payload.append({"role": m["role"], "content": processed_content})
 
                 messages_payload.append({"role": "user", "content": processed_prompt})
 
@@ -332,7 +427,8 @@ elif mode == "Text Transformation":
     with col1:
         transform_button = st.button("Transform", use_container_width=True)
     with col2:
-        if st.button("🗑️ Reset", use_container_width=True, help="Clear input text and system prompt"):
+        reset_help = "Clear input text and system prompt"
+        if st.button("🗑️ Reset", use_container_width=True, help=reset_help):
             st.session_state["transformation_text"] = ""
             st.session_state["system_prompt_input"] = ""
             st.session_state["uploader_key"] += 1

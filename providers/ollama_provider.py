@@ -13,6 +13,7 @@ class OllamaProvider(LLMProvider):
         import os
         self._name = "Ollama (Local)"
         self._enabled = os.getenv("OLLAMA_ENABLED", "true").lower() == "true"
+        self._model_info_cache = {}
 
     def is_available(self) -> bool:
         """
@@ -42,7 +43,20 @@ class OllamaProvider(LLMProvider):
             Exception: If Ollama is not running or connection fails
         """
         models_info = ollama.list()
-        return [m['model'] for m in models_info['models']]
+        self._model_info_cache = {m['model']: m for m in models_info['models']}
+        return list(self._model_info_cache.keys())
+
+    def get_model_info(self, model: str) -> Dict[str, Any]:
+        """
+        Get info for a specific model from cache.
+
+        Args:
+            model: Model name
+
+        Returns:
+            Dict: Model metadata
+        """
+        return self._model_info_cache.get(model, {})
 
     def chat(
         self,
@@ -79,6 +93,18 @@ class OllamaProvider(LLMProvider):
 
         # Yield chunks directly from Ollama
         yield from response
+
+    def pull_model(self, model: str) -> Iterator[Dict[str, Any]]:
+        """
+        Pull a model from the Ollama library.
+
+        Args:
+            model: Name of the model to pull
+
+        Yields:
+            Dict containing progress information
+        """
+        return ollama.pull(model, stream=True)
 
     def get_name(self) -> str:
         """

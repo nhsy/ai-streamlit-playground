@@ -7,9 +7,11 @@ This is a Streamlit application that interfaces with local Ollama models and IBM
 ## Features
 
 - 🔄 **Dual Provider Support**: Switch between local Ollama and cloud-based IBM watsonx
-- 💬 **Chat Interface**: Interactive chat with conversation history
+- 💬 **Chat Interface**: Interactive chat with conversation history and file context
+- 📥 **Model Management**: Download new models directly from the UI with progress tracking
+- 📊 **Model Metadata**: Detailed tooltips showing size, parameter count, and quantization
 - 🔄 **Text Transformation**: Apply templates for common text operations
-- 📎 **File Upload**: Support for PDF, TXT, CSV, and more
+- 📎 **File Upload**: Support for PDF, TXT, CSV, and more with `@[]` reference syntax
 - 🎛️ **Configurable Parameters**: Adjust temperature, top_p, and system prompts
 - 🔒 **Secure Credentials**: Environment-based configuration for API keys
 
@@ -135,6 +137,14 @@ In the sidebar, select your preferred provider:
 The app will automatically detect which providers are available based on:
 - Ollama: Service running on localhost:11434
 - watsonx: Valid credentials in `.env` file
+
+### Model Selection & Management
+
+- **Model Switcher**: Select from installed models. Hover over the info icon for details (size, params, quantization).
+- **Download from Library**: Use the "Pull New Model" expander to:
+    - Choose from suggested models optimized for your hardware (e.g., 16GB RAM).
+    - Enter a custom model name from the Ollama library to download it.
+    - Track download progress in real-time.
 
 ### Chat Mode
 

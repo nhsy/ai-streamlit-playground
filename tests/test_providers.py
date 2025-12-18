@@ -74,6 +74,23 @@ class TestOllamaProvider:
             options=options
         )
 
+    @patch('providers.ollama_provider.ollama.pull')
+    def test_pull_model(self, mock_pull):
+        """Test pull_model method."""
+        # Mock streaming response
+        mock_pull.return_value = [
+            {'status': 'downloading', 'completed': 100, 'total': 1000},
+            {'status': 'success'}
+        ]
+
+        provider = OllamaProvider()
+        response = list(provider.pull_model('llama2'))
+
+        assert len(response) == 2
+        assert response[0]['status'] == 'downloading'
+        assert response[1]['status'] == 'success'
+        mock_pull.assert_called_once_with('llama2', stream=True)
+
 
 class TestWatsonxProvider:
     """Test suite for WatsonxProvider."""
