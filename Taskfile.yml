@@ -48,7 +48,6 @@ tasks:
 
   run:
     desc: Run the Streamlit app locally
-    deps: [ollama:check]
     cmds:
       - source .venv/bin/activate && streamlit run app.py
 
@@ -73,3 +72,13 @@ tasks:
     desc: Stop the Docker container
     cmds:
       - docker-compose down
+
+
+  test-ci:
+    desc: Run GitHub Actions locally using act (requires Docker)
+    preconditions:
+      - sh: command -v act >/dev/null 2>&1
+        msg: "act is not installed. Install it with 'brew install act' or visit https://github.com/nektos/act"
+    cmds:
+      - act --validate
+      - act --container-architecture linux/arm64 -P ubuntu-latest=catthehacker/ubuntu:act-latest

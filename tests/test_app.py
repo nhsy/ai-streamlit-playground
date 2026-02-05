@@ -1,29 +1,9 @@
-"""Tests for the Ollama Streamlit app."""
+"""UI tests for the AI Streamlit Playground."""
 # pylint: disable=redefined-outer-name, unused-argument, missing-function-docstring
-from unittest.mock import patch
-import pytest
 from streamlit.testing.v1 import AppTest
 
 # Mock the ollama library and watsonx provider
-@pytest.fixture
-def mock_app_env():
-    with patch('ollama.list') as mock_list, \
-         patch('ollama.chat') as mock_chat, \
-         patch('providers.watsonx_provider.WatsonxProvider.is_available') as mock_wx_avail, \
-         patch.dict('os.environ', {"OLLAMA_ENABLED": "true"}):
-
-        # Setup default mock behavior
-        mock_list.return_value = {'models': [{'model': 'llama3'}, {'model': 'mistral'}]}
-        mock_wx_avail.return_value = False # Keep watsonx disabled by default for these tests
-
-        # Mock chat to return a generator for streaming
-        def stream_response(*args, **kwargs):
-            yield {'message': {'content': 'This is a '}}
-            yield {'message': {'content': 'mock response.'}}
-
-        mock_chat.side_effect = stream_response
-
-        yield mock_list, mock_chat
+# The mock_app_env fixture is now in conftest.py
 
 def test_app_starts_smoke_test(mock_app_env):
     """Test that the app starts up without errors."""
@@ -117,8 +97,8 @@ def test_transformation_execution(mock_app_env):
     assert "Summarize" in call_args['messages'][0]['content']
     assert "Execute this text" in call_args['messages'][0]['content']
 
-    # Verify output
-    assert "This is a mock response." in at.markdown[1].value # Result markdown
+    # Result markdown (shifted by CSS block at [0])
+    assert "This is a mock response." in at.markdown[2].value
 
 def test_chat_execution(mock_app_env):
     """Test sending a chat message."""

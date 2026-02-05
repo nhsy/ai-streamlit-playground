@@ -2,10 +2,22 @@
     "default_provider": "ollama",
     "providers": {
         "ollama": {
-            "default_model": "qwen2.5:7b"
+            "default_model": "mistral:7b"
         },
         "watsonx": {
             "default_model": "meta-llama/llama-3-3-70b-instruct"
+        },
+        "openrouter": {
+            "default_model": "openrouter/auto",
+            "models": {
+                "openrouter/auto": "🤖 OpenRouter Auto (Free)",
+                "meta-llama/llama-3.3-70b-instruct:free": "🆓 Llama 3.3 70B (Free)",
+                "openai/gpt-oss-120b:free": "🆓 GPT-OSS 120B (Free)",
+                "qwen/qwen3-next-80b-a3b-instruct:free": "🆓 Qwen3 Next 80B (Free)"
+            }
+        },
+        "gemini": {
+            "default_model": "gemini-2.5-flash"
         }
     },
     "templates": {

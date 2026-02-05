@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Iterator
 
 
-class LLMProvider(ABC):
+class BaseProvider(ABC):
     """Abstract base class for LLM providers."""
 
     @abstractmethod

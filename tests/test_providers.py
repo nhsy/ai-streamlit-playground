@@ -97,7 +97,8 @@ class TestWatsonxProvider:
 
     def test_initialization_without_credentials(self):
         """Test WatsonxProvider initialization without credentials."""
-        with patch.dict(os.environ, {}, clear=True):
+        # Without key
+        with patch.dict(os.environ, {"WATSONX_ENABLED": "true"}, clear=True):
             provider = WatsonxProvider()
             assert provider.get_name() == "IBM watsonx"
             assert provider.is_available() is False
@@ -120,7 +121,8 @@ class TestWatsonxProvider:
         }):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 assert provider.is_available() is True
@@ -131,7 +133,8 @@ class TestWatsonxProvider:
         with patch.dict('sys.modules', {'ibm_watsonx_ai': MagicMock(Credentials=mock_credentials)}):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 # pylint: disable=protected-access
@@ -144,7 +147,8 @@ class TestWatsonxProvider:
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
                 'WATSONX_PROJECT_ID': 'test-project',
-                'WATSONX_URL': 'https://us-south.ml.cloud.ibm.com'
+                'WATSONX_URL': 'https://us-south.ml.cloud.ibm.com',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 # pylint: disable=protected-access
@@ -191,7 +195,8 @@ class TestWatsonxProvider:
         }):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 models = provider.list_models()
@@ -203,7 +208,7 @@ class TestWatsonxProvider:
 
     def test_list_models_without_credentials(self):
         """Test list_models raises exception without credentials."""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"WATSONX_ENABLED": "true"}, clear=True):
             provider = WatsonxProvider()
             with pytest.raises(RuntimeError, match="watsonx credentials not configured"):
                 provider.list_models()
@@ -214,7 +219,8 @@ class TestWatsonxProvider:
         with patch.dict('sys.modules', {'ibm_watsonx_ai': MagicMock(Credentials=mock_credentials)}):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
 
@@ -259,7 +265,8 @@ class TestWatsonxProvider:
         }):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 messages = [{'role': 'user', 'content': 'Hi'}]
@@ -302,7 +309,8 @@ class TestWatsonxProvider:
         }):
             with patch.dict(os.environ, {
                 'WATSONX_API_KEY': 'test-key',
-                'WATSONX_PROJECT_ID': 'test-project'
+                'WATSONX_PROJECT_ID': 'test-project',
+                'WATSONX_ENABLED': 'true'
             }):
                 provider = WatsonxProvider()
                 messages = [{'role': 'user', 'content': 'Hi'}]
@@ -320,7 +328,7 @@ class TestWatsonxProvider:
 
     def test_chat_without_credentials(self):
         """Test chat raises exception without credentials."""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"WATSONX_ENABLED": "true"}, clear=True):
             provider = WatsonxProvider()
             messages = [{'role': 'user', 'content': 'Hi'}]
 

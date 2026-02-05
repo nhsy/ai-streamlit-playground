@@ -1,10 +1,10 @@
 """IBM watsonx provider implementation."""
 import os
 from typing import List, Dict, Any, Iterator
-from .base import LLMProvider
+from .base import BaseProvider
 
 
-class WatsonxProvider(LLMProvider):
+class WatsonxProvider(BaseProvider):
     """Provider implementation for IBM watsonx.ai models."""
 
     def __init__(self):
@@ -13,6 +13,7 @@ class WatsonxProvider(LLMProvider):
         self._api_key = os.getenv("WATSONX_API_KEY")
         self._project_id = os.getenv("WATSONX_PROJECT_ID")
         self._url = os.getenv("WATSONX_URL", "https://eu-gb.ml.cloud.ibm.com")
+        self._enabled = os.getenv("WATSONX_ENABLED", "true").lower() == "true"
         self._client = None
         self._credentials = None
 
@@ -44,6 +45,8 @@ class WatsonxProvider(LLMProvider):
         Returns:
             bool: True if credentials are set and valid
         """
+        if not self._enabled:
+            return False
         return bool(self._api_key and self._project_id and self._credentials)
 
     def list_models(self) -> List[str]:

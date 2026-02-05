@@ -1,21 +1,9 @@
-"""Tests for the JSON template configuration."""
+"""Template integration tests for the AI Streamlit Playground."""
 # pylint: disable=redefined-outer-name, unused-argument, missing-function-docstring
-from unittest.mock import patch
-import pytest
 from streamlit.testing.v1 import AppTest
 
 # Mock dependencies to avoid actual API calls (reusing logic from test_app.py)
-@pytest.fixture
-def mock_app_env():
-    """Mock the app environment."""
-    with patch('ollama.list') as mock_list, \
-         patch('ollama.chat') as mock_chat, \
-         patch('providers.watsonx_provider.WatsonxProvider.is_available') as mock_wx_avail, \
-         patch.dict('os.environ', {"OLLAMA_ENABLED": "true"}):
-        mock_list.return_value = {'models': [{'model': 'llama3'}]}
-        mock_wx_avail.return_value = False
-        mock_chat.return_value = iter([]) # Empty stream
-        yield mock_list, mock_chat
+# The mock_app_env fixture is now in conftest.py
 
 def test_json_config_templates_loaded(mock_app_env):
     """Verify that templates defined in template_config.json are available."""
@@ -51,8 +39,13 @@ def test_template_text_correctness(mock_app_env):
     # but AppTest is black-box.
     # However, we can run a transformation and check the prompt sent to the model.
 
-    at.text_area[0].input("Hello world").run()
-    at.button[0].click().run()
+    # Enter text (Find correct text area by label)
+    txt_area = next(t for t in at.text_area if t.label == "Enter text to transform:")
+    txt_area.input("Hello world").run()
+
+    # Click Transform (Find button by label)
+    btn_transform = next(b for b in at.button if b.label == "Transform")
+    btn_transform.click().run()
 
     # Verify mock call arguments
     _, mock_chat = mock_app_env

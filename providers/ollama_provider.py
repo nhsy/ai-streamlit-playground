@@ -1,10 +1,10 @@
 """Ollama provider implementation."""
 from typing import List, Dict, Any, Iterator
 import ollama
-from .base import LLMProvider
+from .base import BaseProvider
 
 
-class OllamaProvider(LLMProvider):
+class OllamaProvider(BaseProvider):
     """Provider implementation for local Ollama models."""
 
     def __init__(self):

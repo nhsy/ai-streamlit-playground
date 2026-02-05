@@ -1,7 +1,10 @@
+.idea/
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # Virtual Environment
 .venv/
@@ -20,3 +23,5 @@ build/
 .env
 .env.local
 .env.*.local
+
+*.bak

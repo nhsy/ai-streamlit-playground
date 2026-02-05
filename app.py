@@ -8,7 +8,7 @@ import re
 import streamlit as st
 import pypdf
 from dotenv import load_dotenv
-from providers import OllamaProvider, WatsonxProvider
+from providers import OllamaProvider, WatsonxProvider, OpenRouterProvider, GeminiProvider
 
 # Load environment variables from .env file
 load_dotenv()
@@ -76,7 +76,19 @@ def load_templates():
 
     return templates
 
-st.set_page_config(page_title="AI Streamlit Playground")
+st.set_page_config(page_title="AI Streamlit Playground", layout="wide")
+
+# Custom CSS to make sidebar wider
+st.markdown(
+    """
+    <style>
+        section[data-testid="stSidebar"] {
+            width: 400px !important; /* Default is ~260px */
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 st.title("AI Streamlit Playground")
 
@@ -98,6 +110,8 @@ with st.sidebar:
     # Initialize providers
     ollama_provider = OllamaProvider()
     watsonx_provider = WatsonxProvider()
+    openrouter_provider = OpenRouterProvider()
+    gemini_provider = GeminiProvider()
 
     # Determine available providers
     available_providers = {}
@@ -105,6 +119,10 @@ with st.sidebar:
         available_providers["Ollama (Local)"] = ollama_provider
     if watsonx_provider.is_available():
         available_providers["IBM watsonx"] = watsonx_provider
+    if openrouter_provider.is_available():
+        available_providers["OpenRouter"] = openrouter_provider
+    if gemini_provider.is_available():
+        available_providers["Google Gemini"] = gemini_provider
 
     if not available_providers:
         st.error("⚠️ No providers available!")
@@ -115,6 +133,8 @@ with st.sidebar:
                     "OLLAMA_ENABLED is not set to 'false'.")
 
         st.info("**watsonx**: Set WATSONX_API_KEY and WATSONX_PROJECT_ID in .env file.")
+        st.info("**OpenRouter**: Set OPENROUTER_API_KEY in .env file.")
+        st.info("**Google Gemini**: Set GEMINI_API_KEY in .env file.")
 
         selected_provider = None
         selected_model = None
@@ -161,7 +181,17 @@ with st.sidebar:
                 config = load_config()
 
                 # Try provider-specific default first
-                provider_key = "ollama" if "Ollama" in selected_provider_name else "watsonx"
+                if "Ollama" in selected_provider_name:
+                    provider_key = "ollama"
+                elif "watsonx" in selected_provider_name:
+                    provider_key = "watsonx"
+                elif "OpenRouter" in selected_provider_name:
+                    provider_key = "openrouter"
+                elif "Gemini" in selected_provider_name:
+                    provider_key = "gemini"
+                else:
+                    provider_key = selected_provider_name.lower() # Fallback
+
                 provider_config = config.get("providers", {}).get(provider_key, {})
                 default_model = provider_config.get("default_model")
 
@@ -193,6 +223,13 @@ with st.sidebar:
                     model_help += f"- **Params:** {params}\n"
                     model_help += f"- **Quant:** {quant}\n"
                     model_help += f"- **Family:** {family}"
+                elif hasattr(selected_provider, 'get_model_info'):
+                     # Generic fallback for providers that return partial info (like OpenRouter wrapper)
+                     info = selected_provider.get_model_info(current_model)
+                     if info and 'details' in info:
+                         display_name = info['details'].get('display_name')
+                         if display_name:
+                             model_help = f"**{display_name}**\n\nID: `{current_model}`"
                 elif "Ollama" in selected_provider_name:
                     model_help = "No additional metadata available for this model."
 
