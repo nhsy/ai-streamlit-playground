@@ -2,7 +2,7 @@
     "default_provider": "ollama",
     "providers": {
         "ollama": {
-            "default_model": "mistral:7b"
+            "default_model": "gemma4"
         },
         "watsonx": {
             "default_model": "meta-llama/llama-3-3-70b-instruct"
