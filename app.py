@@ -3,13 +3,16 @@ AI Streamlit Playground
 A Streamlit app to interact with Ollama and watsonx models.
 """
 
+import html as html_module
 import json
 import os
 import re
+from datetime import datetime
 
 import docx
 import pypdf
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 from providers import GeminiProvider, OllamaProvider, OpenRouterProvider, WatsonxProvider
@@ -48,6 +51,50 @@ def process_prompt(text):
         text = new_text
 
     return text
+
+
+def format_chat_as_markdown(messages):
+    """Convert chat messages to a markdown string."""
+    lines = [f"# Chat Export\n\n_Exported on {datetime.now().strftime('%Y-%m-%d %H:%M')}_\n"]
+    for msg in messages:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        lines.append(f"---\n\n**{role}:**\n\n{msg['content']}\n")
+    return "\n".join(lines)
+
+
+def format_chat_as_html(messages):
+    """Convert chat messages to a styled HTML document."""
+    msg_blocks = []
+    for msg in messages:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        css_class = "user" if msg["role"] == "user" else "assistant"
+        escaped = html_module.escape(msg["content"]).replace("\n", "<br>")
+        msg_blocks.append(f'<div class="message {css_class}"><strong>{role}</strong><p>{escaped}</p></div>')
+    body = "\n".join(msg_blocks)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Export</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }}
+  h1 {{ color: #333; }}
+  .timestamp {{ color: #888; font-size: 0.9em; margin-bottom: 20px; }}
+  .message {{ padding: 12px 16px; margin: 10px 0; border-radius: 8px; }}
+  .message strong {{ display: block; margin-bottom: 4px; }}
+  .message p {{ margin: 0; white-space: pre-wrap; }}
+  .user {{ background: #e3f2fd; border-left: 4px solid #1976d2; }}
+  .assistant {{ background: #fff; border-left: 4px solid #43a047; }}
+</style>
+</head>
+<body>
+<h1>Chat Export</h1>
+<p class="timestamp">Exported on {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
+{body}
+</body>
+</html>"""
 
 
 def load_config():
@@ -363,15 +410,54 @@ if mode == "Chat":
         key=f"chat_uploader_{st.session_state['uploader_key']}",
     )
 
-    # Reset button
-    if st.button("🗑️ Reset", help="Clear chat history, system prompt, and uploaded files"):
-        st.session_state["messages"] = []
-        st.session_state["uploader_key"] += 1
-        st.session_state["system_prompt_input"] = ""
-        st.rerun()
-
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
+
+    # Action buttons
+    chat_messages = st.session_state.get("messages", [])
+    has_messages = bool(chat_messages)
+    md_text = format_chat_as_markdown(chat_messages) if has_messages else ""
+    html_text = format_chat_as_html(chat_messages) if has_messages else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    col_reset, col_copy, col_md, col_html = st.columns(4)
+
+    with col_reset:
+        if st.button("🗑️ Reset", use_container_width=True, help="Clear chat history"):
+            st.session_state["messages"] = []
+            st.session_state["uploader_key"] += 1
+            st.session_state["system_prompt_input"] = ""
+            st.rerun()
+    with col_copy:
+        if st.button("📋 Copy", use_container_width=True, disabled=not has_messages):
+            st.session_state["_copy_chat"] = True
+    with col_md:
+        st.download_button(
+            label="📄 Markdown",
+            data=md_text,
+            file_name=f"chat_{timestamp}.md",
+            mime="text/markdown",
+            use_container_width=True,
+            disabled=not has_messages,
+        )
+    with col_html:
+        st.download_button(
+            label="🌐 HTML",
+            data=html_text,
+            file_name=f"chat_{timestamp}.html",
+            mime="text/html",
+            use_container_width=True,
+            disabled=not has_messages,
+        )
+
+    if st.session_state.pop("_copy_chat", False) and has_messages:
+        components.html(
+            f"""<script>
+            navigator.clipboard.writeText(`{md_text.replace(chr(96), "\\`").replace("$", "\\$")}`);
+            </script>
+            <p style="color:green;font-size:14px;">Copied to clipboard!</p>""",
+            height=30,
+        )
 
     # Display chat messages from history on app rerun
     for message in st.session_state["messages"]:
@@ -454,6 +540,7 @@ if mode == "Chat":
 
         # Add assistant response to chat history
         st.session_state["messages"].append({"role": "assistant", "content": full_response})
+        st.rerun()
 
 # Text Transformation Mode
 elif mode == "Text Transformation":
