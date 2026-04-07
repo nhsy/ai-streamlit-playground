@@ -1,6 +1,8 @@
 """IBM watsonx provider implementation."""
+
 import os
-from typing import List, Dict, Any, Iterator
+from typing import Any, Dict, Iterator, List
+
 from .base import BaseProvider
 
 
@@ -26,13 +28,11 @@ class WatsonxProvider(BaseProvider):
         try:
             # pylint: disable=import-outside-toplevel
             from ibm_watsonx_ai import Credentials
-            # pylint: disable=unused-import, import-outside-toplevel
-            from ibm_watsonx_ai.foundation_models import ModelInference
 
-            self._credentials = Credentials(
-                url=self._url,
-                api_key=self._api_key
-            )
+            # pylint: disable=unused-import, import-outside-toplevel
+            from ibm_watsonx_ai.foundation_models import ModelInference  # noqa: F401
+
+            self._credentials = Credentials(url=self._url, api_key=self._api_key)
             # Client will be created per-request with specific model
         except ImportError:
             # Package not installed - watsonx will not be available
@@ -61,13 +61,13 @@ class WatsonxProvider(BaseProvider):
         """
         if not self.is_available():
             raise RuntimeError(
-                "watsonx credentials not configured. "
-                "Set WATSONX_API_KEY and WATSONX_PROJECT_ID environment variables."
+                "watsonx credentials not configured. Set WATSONX_API_KEY and WATSONX_PROJECT_ID environment variables."
             )
 
         try:
             # pylint: disable=import-outside-toplevel
             from ibm_watsonx_ai import APIClient
+
             client = APIClient(self._credentials)
 
             # Fetch foundation models
@@ -80,7 +80,7 @@ class WatsonxProvider(BaseProvider):
             # but usually model_id is what we need.
             model_ids = []
             for model in models_df:
-                model_id = model.get('model_id')
+                model_id = model.get("model_id")
                 if model_id:
                     model_ids.append(model_id)
 
@@ -98,11 +98,7 @@ class WatsonxProvider(BaseProvider):
             ]
 
     def chat(
-        self,
-        model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = True,
-        options: Dict[str, Any] = None
+        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
     ) -> Iterator[Dict[str, Any]]:
         """
         Send a chat completion request to watsonx.
@@ -121,8 +117,7 @@ class WatsonxProvider(BaseProvider):
         """
         if not self.is_available():
             raise RuntimeError(
-                "watsonx credentials not configured. "
-                "Set WATSONX_API_KEY and WATSONX_PROJECT_ID environment variables."
+                "watsonx credentials not configured. Set WATSONX_API_KEY and WATSONX_PROJECT_ID environment variables."
             )
 
         try:
@@ -131,8 +126,7 @@ class WatsonxProvider(BaseProvider):
             from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
         except ImportError as exc:
             raise ImportError(
-                "ibm-watsonx-ai package not installed. "
-                "Install it with: pip install ibm-watsonx-ai"
+                "ibm-watsonx-ai package not installed. Install it with: pip install ibm-watsonx-ai"
             ) from exc
 
         if options is None:
@@ -150,10 +144,7 @@ class WatsonxProvider(BaseProvider):
 
         # Create model instance
         model_instance = ModelInference(
-            model_id=model,
-            credentials=self._credentials,
-            project_id=self._project_id,
-            params=params
+            model_id=model, credentials=self._credentials, project_id=self._project_id, params=params
         )
 
         if stream:
@@ -161,19 +152,11 @@ class WatsonxProvider(BaseProvider):
             response_stream = model_instance.generate_text_stream(prompt=prompt)
             for chunk_text in response_stream:
                 # Convert to Ollama-compatible format
-                yield {
-                    'message': {
-                        'content': chunk_text
-                    }
-                }
+                yield {"message": {"content": chunk_text}}
         else:
             # Non-streaming response
             response = model_instance.generate_text(prompt=prompt)
-            yield {
-                'message': {
-                    'content': response
-                }
-            }
+            yield {"message": {"content": response}}
 
     def _messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
         """
@@ -188,14 +171,14 @@ class WatsonxProvider(BaseProvider):
         prompt_parts = []
 
         for msg in messages:
-            role = msg.get('role', 'user')
-            content = msg.get('content', '')
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
 
-            if role == 'system':
+            if role == "system":
                 prompt_parts.append(f"System: {content}")
-            elif role == 'user':
+            elif role == "user":
                 prompt_parts.append(f"User: {content}")
-            elif role == 'assistant':
+            elif role == "assistant":
                 prompt_parts.append(f"Assistant: {content}")
 
         # Add final assistant prompt

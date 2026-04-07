@@ -1,6 +1,7 @@
 """Base abstract class for LLM providers."""
+
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Iterator
+from typing import Any, Dict, Iterator, List
 
 
 class BaseProvider(ABC):
@@ -41,11 +42,7 @@ class BaseProvider(ABC):
 
     @abstractmethod
     def chat(
-        self,
-        model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = True,
-        options: Dict[str, Any] = None
+        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
     ) -> Iterator[Dict[str, Any]]:
         """
         Send a chat completion request.

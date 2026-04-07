@@ -1,6 +1,9 @@
 """Ollama provider implementation."""
-from typing import List, Dict, Any, Iterator
+
+from typing import Any, Dict, Iterator, List
+
 import ollama
+
 from .base import BaseProvider
 
 
@@ -11,6 +14,7 @@ class OllamaProvider(BaseProvider):
         """Initialize Ollama provider."""
         # pylint: disable=import-outside-toplevel
         import os
+
         self._name = "Ollama (Local)"
         self._enabled = os.getenv("OLLAMA_ENABLED", "true").lower() == "true"
         self._model_info_cache = {}
@@ -43,7 +47,7 @@ class OllamaProvider(BaseProvider):
             Exception: If Ollama is not running or connection fails
         """
         models_info = ollama.list()
-        self._model_info_cache = {m['model']: m for m in models_info['models']}
+        self._model_info_cache = {m["model"]: m for m in models_info["models"]}
         return list(self._model_info_cache.keys())
 
     def get_model_info(self, model: str) -> Dict[str, Any]:
@@ -59,11 +63,7 @@ class OllamaProvider(BaseProvider):
         return self._model_info_cache.get(model, {})
 
     def chat(
-        self,
-        model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = True,
-        options: Dict[str, Any] = None
+        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
     ) -> Iterator[Dict[str, Any]]:
         """
         Send a chat completion request to Ollama.
@@ -84,12 +84,7 @@ class OllamaProvider(BaseProvider):
             options = {}
 
         # Ollama uses the same format, so we can pass through directly
-        response = ollama.chat(
-            model=model,
-            messages=messages,
-            stream=stream,
-            options=options
-        )
+        response = ollama.chat(model=model, messages=messages, stream=stream, options=options)
 
         # Yield chunks directly from Ollama
         yield from response

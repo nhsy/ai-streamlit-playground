@@ -1,8 +1,11 @@
 """OpenRouter provider implementation."""
-import os
+
 import json
-from typing import List, Dict, Any, Iterator
+import os
+from typing import Any, Dict, Iterator, List
+
 from openai import OpenAI
+
 from .base import BaseProvider
 
 
@@ -78,24 +81,16 @@ class OpenRouterProvider(BaseProvider):
 
         Args:
             model: Model identifier
-        
+
         Returns:
             Dict: Model metadata
         """
         # Return the display name from config if available
         display_name = self._config_models.get(model, model)
-        return {
-            "details": {
-                "display_name": display_name
-            }
-        }
+        return {"details": {"display_name": display_name}}
 
     def chat(
-        self,
-        model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = True,
-        options: Dict[str, Any] = None
+        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
     ) -> Iterator[Dict[str, Any]]:
         """
         Send a chat completion request to OpenRouter.
@@ -126,28 +121,20 @@ class OpenRouterProvider(BaseProvider):
             top_p=options.get("top_p", 0.9),
             # OpenRouter specific headers if needed
             extra_headers={
-                "HTTP-Referer": "http://localhost:8501", # Optional
-                "X-Title": "AI Streamlit Playground"     # Optional
-            }
+                "HTTP-Referer": "http://localhost:8501",  # Optional
+                "X-Title": "AI Streamlit Playground",  # Optional
+            },
         )
 
         if stream:
             for chunk in response:
                 content = chunk.choices[0].delta.content
                 if content:
-                    yield {
-                        'message': {
-                            'content': content
-                        }
-                    }
+                    yield {"message": {"content": content}}
         else:
             # Handle non-streaming if ever needed (though app uses stream=True)
             content = response.choices[0].message.content
-            yield {
-                'message': {
-                    'content': content
-                }
-            }
+            yield {"message": {"content": content}}
 
     def get_name(self) -> str:
         """Get the provider name."""

@@ -1,7 +1,10 @@
 """Tests for new LLM provider implementations (OpenRouter, Gemini)."""
+
 import os
-from unittest.mock import patch, MagicMock
-from providers import OpenRouterProvider, GeminiProvider
+from unittest.mock import MagicMock, patch
+
+from providers import GeminiProvider, OpenRouterProvider
+
 
 class TestOpenRouterProvider:
     """Test suite for OpenRouterProvider."""
@@ -16,7 +19,7 @@ class TestOpenRouterProvider:
 
         # With key
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-test"}):
-            with patch('providers.openrouter_provider.OpenAI') as mock_openai:
+            with patch("providers.openrouter_provider.OpenAI") as mock_openai:
                 provider = OpenRouterProvider()
                 assert provider.is_available() is True
                 mock_openai.assert_called_once()
@@ -24,32 +27,24 @@ class TestOpenRouterProvider:
     def test_config_loading(self):
         """Test loading models from config.json."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-test"}):
-            with patch('providers.openrouter_provider.OpenAI'):
-                with patch('builtins.open', new_callable=MagicMock) as mock_open:
-                    with patch('json.load') as mock_json:
-                        mock_json.return_value = {
-                            "providers": {
-                                "openrouter": {
-                                    "models": {
-                                        "test/model": "Test Model"
-                                    }
-                                }
-                            }
-                        }
+            with patch("providers.openrouter_provider.OpenAI"):
+                with patch("builtins.open", new_callable=MagicMock) as mock_open:
+                    with patch("json.load") as mock_json:
+                        mock_json.return_value = {"providers": {"openrouter": {"models": {"test/model": "Test Model"}}}}
                         # Setup mock file context manager
                         mock_file = MagicMock()
                         mock_open.return_value.__enter__.return_value = mock_file
 
-                        with patch('os.path.exists', return_value=True):
+                        with patch("os.path.exists", return_value=True):
                             provider = OpenRouterProvider()
                             assert "test/model" in provider.list_models()
                             info = provider.get_model_info("test/model")
-                            assert info['details']['display_name'] == "Test Model"
+                            assert info["details"]["display_name"] == "Test Model"
 
     def test_chat(self):
         """Test chat interaction."""
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-test"}):
-            with patch('providers.openrouter_provider.OpenAI') as mock_openai:
+            with patch("providers.openrouter_provider.OpenAI") as mock_openai:
                 # Mock client instance
                 mock_client = MagicMock()
                 mock_openai.return_value = mock_client
@@ -64,7 +59,7 @@ class TestOpenRouterProvider:
                 response = list(provider.chat("model", messages))
 
                 assert len(response) == 1
-                assert response[0]['message']['content'] == "Hello"
+                assert response[0]["message"]["content"] == "Hello"
 
 
 class TestGeminiProvider:
@@ -80,7 +75,7 @@ class TestGeminiProvider:
 
         # With key
         with patch.dict(os.environ, {"GEMINI_API_KEY": "AIzaTest"}):
-            with patch('google.genai.Client'):
+            with patch("google.genai.Client"):
                 provider = GeminiProvider()
                 assert provider.is_available() is True
                 # Just checking initialization happens
@@ -88,7 +83,7 @@ class TestGeminiProvider:
     def test_list_models(self):
         """Test model listing."""
         with patch.dict(os.environ, {"GEMINI_API_KEY": "AIzaTest"}):
-            with patch('google.genai.Client') as mock_client_cls:
+            with patch("google.genai.Client") as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client_cls.return_value = mock_client
 
@@ -96,7 +91,7 @@ class TestGeminiProvider:
                 mock_model1 = MagicMock()
                 mock_model1.name = "models/gemini-pro"
                 mock_model2 = MagicMock()
-                mock_model2.name = "models/gemini-vision-pro" # Should be filtered out
+                mock_model2.name = "models/gemini-vision-pro"  # Should be filtered out
 
                 mock_client.models.list.return_value = [mock_model1, mock_model2]
 
@@ -113,7 +108,7 @@ class TestGeminiProvider:
     def test_chat(self):
         """Test chat interaction."""
         with patch.dict(os.environ, {"GEMINI_API_KEY": "AIzaTest"}):
-            with patch('google.genai.Client') as mock_client_cls:
+            with patch("google.genai.Client") as mock_client_cls:
                 mock_client = MagicMock()
                 mock_client_cls.return_value = mock_client
 
@@ -128,4 +123,4 @@ class TestGeminiProvider:
                 response = list(provider.chat("gemini-2.0-flash", messages))
 
                 assert len(response) == 1
-                assert response[0]['message']['content'] == "Hello"
+                assert response[0]["message"]["content"] == "Hello"

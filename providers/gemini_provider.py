@@ -1,8 +1,11 @@
 """Google Gemini provider implementation using google-genai SDK."""
+
 import os
-from typing import List, Dict, Any, Iterator
+from typing import Any, Dict, Iterator, List
+
 from google import genai
 from google.genai import types
+
 from .base import BaseProvider
 
 
@@ -54,8 +57,7 @@ class GeminiProvider(BaseProvider):
             # Current SDK might not expose simple capability flags easily on the list object
             # without extra calls, so we stick to known prefixes.
             model_ids = [
-                m.name.split("/")[-1] for m in models
-                if "gemini" in m.name.lower() and "vision" not in m.name.lower()
+                m.name.split("/")[-1] for m in models if "gemini" in m.name.lower() and "vision" not in m.name.lower()
             ]
 
             if not model_ids:
@@ -74,11 +76,7 @@ class GeminiProvider(BaseProvider):
             ]
 
     def chat(
-        self,
-        model: str,
-        messages: List[Dict[str, str]],
-        stream: bool = True,
-        options: Dict[str, Any] = None
+        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
     ) -> Iterator[Dict[str, Any]]:
         """
         Send a chat completion request to Gemini.
@@ -111,15 +109,9 @@ class GeminiProvider(BaseProvider):
             if role == "system":
                 system_instruction = content
             elif role == "user":
-                chat_history.append(types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text=content)]
-                ))
+                chat_history.append(types.Content(role="user", parts=[types.Part.from_text(text=content)]))
             elif role == "assistant":
-                chat_history.append(types.Content(
-                    role="model",
-                    parts=[types.Part.from_text(text=content)]
-                ))
+                chat_history.append(types.Content(role="model", parts=[types.Part.from_text(text=content)]))
 
         # The last message should be the prompt, so we pop it if we built a full history
         # actually for chat, we usually maintain history.
@@ -147,11 +139,7 @@ class GeminiProvider(BaseProvider):
 
         for chunk in response:
             if chunk.text:
-                yield {
-                    'message': {
-                        'content': chunk.text
-                    }
-                }
+                yield {"message": {"content": chunk.text}}
 
     def get_name(self) -> str:
         """Get the provider name."""
