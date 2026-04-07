@@ -2,16 +2,21 @@
 AI Streamlit Playground
 A Streamlit app to interact with Ollama and watsonx models.
 """
+
 import json
 import os
 import re
-import streamlit as st
+
+import docx
 import pypdf
+import streamlit as st
 from dotenv import load_dotenv
-from providers import OllamaProvider, WatsonxProvider, OpenRouterProvider, GeminiProvider
+
+from providers import GeminiProvider, OllamaProvider, OpenRouterProvider, WatsonxProvider
 
 # Load environment variables from .env file
 load_dotenv()
+
 
 def process_prompt(text):
     """
@@ -37,12 +42,13 @@ def process_prompt(text):
 
     # Recursive replacement to handle nested includes (up to a limit)
     for _ in range(3):
-        new_text = re.sub(r'@\[([^]]+)\]', replace_match, text)
+        new_text = re.sub(r"@\[([^]]+)\]", replace_match, text)
         if new_text == text:
             break
         text = new_text
 
     return text
+
 
 def load_config():
     """Load configuration from config.json."""
@@ -56,6 +62,7 @@ def load_config():
             st.error(f"Error loading {config_path}: {e}")
 
     return {"default_model": None, "templates": {}, "providers": {}}
+
 
 def load_templates():
     """Load templates from json config and filesystem."""
@@ -76,6 +83,7 @@ def load_templates():
 
     return templates
 
+
 st.set_page_config(page_title="AI Streamlit Playground", layout="wide")
 
 # Custom CSS to make sidebar wider
@@ -87,7 +95,7 @@ st.markdown(
         }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 st.title("AI Streamlit Playground")
@@ -129,8 +137,7 @@ with st.sidebar:
         if not ollama_provider._enabled:
             st.info("**Ollama**: Disabled via OLLAMA_ENABLED environment variable.")
         else:
-            st.info("**Ollama**: Make sure Ollama is running locally and "
-                    "OLLAMA_ENABLED is not set to 'false'.")
+            st.info("**Ollama**: Make sure Ollama is running locally and OLLAMA_ENABLED is not set to 'false'.")
 
         st.info("**watsonx**: Set WATSONX_API_KEY and WATSONX_PROJECT_ID in .env file.")
         st.info("**OpenRouter**: Set OPENROUTER_API_KEY in .env file.")
@@ -158,7 +165,7 @@ with st.sidebar:
             "Select Provider",
             provider_names,
             index=default_provider_index,
-            help="Choose between local Ollama or cloud-based watsonx"
+            help="Choose between local Ollama or cloud-based watsonx",
         )
         selected_provider = available_providers[selected_provider_name]
 
@@ -190,7 +197,7 @@ with st.sidebar:
                 elif "Gemini" in selected_provider_name:
                     provider_key = "gemini"
                 else:
-                    provider_key = selected_provider_name.lower() # Fallback
+                    provider_key = selected_provider_name.lower()  # Fallback
 
                 provider_config = config.get("providers", {}).get(provider_key, {})
                 default_model = provider_config.get("default_model")
@@ -205,31 +212,32 @@ with st.sidebar:
                     default_index = model_names.index(default_model)
 
                 # Prepare help text for model selector
-                current_model = (st.session_state.get(f"selected_model_{selected_provider_name}")
-                                 or model_names[default_index])
+                current_model = (
+                    st.session_state.get(f"selected_model_{selected_provider_name}") or model_names[default_index]
+                )
                 model_help = f"Available models from {selected_provider_name}"
 
                 info = selected_provider.get_model_info(current_model)
                 if info:
                     # Parse metadata with safe defaults
-                    size_gb = info.get('size', 0) / (1024**3)
-                    details = info.get('details', {})
-                    params = details.get('parameter_size', 'Unknown')
-                    quant = details.get('quantization_level', 'Unknown')
-                    family = details.get('family', 'Unknown')
+                    size_gb = info.get("size", 0) / (1024**3)
+                    details = info.get("details", {})
+                    params = details.get("parameter_size", "Unknown")
+                    quant = details.get("quantization_level", "Unknown")
+                    family = details.get("family", "Unknown")
 
                     model_help = f"**{current_model}**\n\n"
                     model_help += f"- **Size:** {size_gb:.2f} GB\n"
                     model_help += f"- **Params:** {params}\n"
                     model_help += f"- **Quant:** {quant}\n"
                     model_help += f"- **Family:** {family}"
-                elif hasattr(selected_provider, 'get_model_info'):
-                     # Generic fallback for providers that return partial info (like OpenRouter wrapper)
-                     info = selected_provider.get_model_info(current_model)
-                     if info and 'details' in info:
-                         display_name = info['details'].get('display_name')
-                         if display_name:
-                             model_help = f"**{display_name}**\n\nID: `{current_model}`"
+                elif hasattr(selected_provider, "get_model_info"):
+                    # Generic fallback for providers that return partial info (like OpenRouter wrapper)
+                    info = selected_provider.get_model_info(current_model)
+                    if info and "details" in info:
+                        display_name = info["details"].get("display_name")
+                        if display_name:
+                            model_help = f"**{display_name}**\n\nID: `{current_model}`"
                 elif "Ollama" in selected_provider_name:
                     model_help = "No additional metadata available for this model."
 
@@ -238,7 +246,7 @@ with st.sidebar:
                     model_names,
                     index=default_index,
                     help=model_help,
-                    key=f"selected_model_{selected_provider_name}"
+                    key=f"selected_model_{selected_provider_name}",
                 )
 
                 # Add Pull Model feature for Ollama
@@ -252,16 +260,14 @@ with st.sidebar:
                             "phi3:medium (14B)",
                             "qwen2.5:7b",
                             "moondream:latest (Vision)",
-                            "Other (Enter name...)"
+                            "Other (Enter name...)",
                         ]
 
                         selection = st.selectbox("Download from Library", library_models)
 
                         if selection == "Other (Enter name...)":
                             pull_target = st.text_input(
-                                "Enter model name",
-                                placeholder="e.g., llama3, mistral",
-                                key="pull_model_custom"
+                                "Enter model name", placeholder="e.g., llama3, mistral", key="pull_model_custom"
                             ).strip()
                         else:
                             # Extract model name (e.g., "llama3.2:latest (3B)" -> "llama3.2:latest")
@@ -273,11 +279,11 @@ with st.sidebar:
                                 status_text = st.empty()
                                 try:
                                     # We know it's OllamaProvider here, but to be safe:
-                                    if hasattr(selected_provider, 'pull_model'):
+                                    if hasattr(selected_provider, "pull_model"):
                                         for progress in selected_provider.pull_model(pull_target):
-                                            status = progress.get('status', '')
-                                            completed = progress.get('completed')
-                                            total = progress.get('total')
+                                            status = progress.get("status", "")
+                                            completed = progress.get("completed")
+                                            total = progress.get("total")
 
                                             if completed and total:
                                                 percent = completed / total
@@ -306,16 +312,10 @@ with st.sidebar:
         max_value=1.0,
         value=0.7,
         step=0.1,
-        help="Controls randomness: higher values make outputs more random, "
-             "lower values more deterministic."
+        help="Controls randomness: higher values make outputs more random, lower values more deterministic.",
     )
     top_p = st.slider(
-        "Top P",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.9,
-        step=0.1,
-        help="Controls diversity via nucleus sampling."
+        "Top P", min_value=0.0, max_value=1.0, value=0.9, step=0.1, help="Controls diversity via nucleus sampling."
     )
 
     st.divider()
@@ -326,7 +326,7 @@ with st.sidebar:
         value=st.session_state["system_prompt_input"],
         placeholder="You are a helpful assistant...",
         help="Instructions that apply to the entire conversation.",
-        key=f"system_prompt_widget_{st.session_state['uploader_key']}"
+        key=f"system_prompt_widget_{st.session_state['uploader_key']}",
     )
     st.session_state["system_prompt_input"] = system_prompt
 
@@ -342,9 +342,13 @@ def read_uploaded_file(file):
             for page in reader.pages:
                 text += page.extract_text() + "\n"
             return text
+        if file.name.lower().endswith(".docx"):
+            doc = docx.Document(file)
+            return "\n".join(paragraph.text for paragraph in doc.paragraphs)
         return file.getvalue().decode("utf-8")
     except Exception as e:
         return f"[Error reading {file.name}: {e}]"
+
 
 # Chat Mode
 if mode == "Chat":
@@ -352,11 +356,11 @@ if mode == "Chat":
 
     # File Uploader in main content area
     uploaded_files = st.file_uploader(
-        "📎 Upload context files (PDF, TXT, CSV, etc.)",
-        type=["txt", "md", "py", "json", "yml", "yaml", "csv", "pdf"],
+        "📎 Upload context files (PDF, DOCX, TXT, CSV, etc.)",
+        type=["txt", "md", "py", "json", "yml", "yaml", "csv", "pdf", "docx"],
         accept_multiple_files=True,
         help="Upload files to provide additional context for your chat",
-        key=f"chat_uploader_{st.session_state['uploader_key']}"
+        key=f"chat_uploader_{st.session_state['uploader_key']}",
     )
 
     # Reset button
@@ -436,12 +440,12 @@ if mode == "Chat":
                     options={
                         "temperature": temperature,
                         "top_p": top_p,
-                    }
+                    },
                 )
 
                 for chunk in stream:
-                    if chunk['message']['content']:
-                        full_response += chunk['message']['content']
+                    if chunk["message"]["content"]:
+                        full_response += chunk["message"]["content"]
                         message_placeholder.markdown(full_response + "▌")
 
                 message_placeholder.markdown(full_response)
@@ -467,7 +471,7 @@ elif mode == "Text Transformation":
         "Enter text to transform:",
         height=200,
         value=st.session_state["transformation_text"],
-        key=f"text_input_{st.session_state['uploader_key']}"
+        key=f"text_input_{st.session_state['uploader_key']}",
     )
 
     # Update session state when text changes
@@ -515,12 +519,12 @@ elif mode == "Text Transformation":
                         options={
                             "temperature": temperature,
                             "top_p": top_p,
-                        }
+                        },
                     )
 
                     for chunk in stream:
-                        if chunk['message']['content']:
-                            full_response += chunk['message']['content']
+                        if chunk["message"]["content"]:
+                            full_response += chunk["message"]["content"]
                             # Simple streaming effect in a customized way if desired,
                             # but for transformation, standard markdown update is fine
                             # response_placeholder.markdown(full_response + "▌")
