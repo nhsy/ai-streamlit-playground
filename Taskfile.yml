@@ -44,18 +44,38 @@ tasks:
   install:
     desc: Install Python dependencies
     cmds:
-      - source .venv/bin/activate && pip install -r requirements.txt
+      - uv sync
 
   run:
     desc: Run the Streamlit app locally
     cmds:
-      - source .venv/bin/activate && streamlit run app.py
+      - uv run streamlit run app.py
+
+  lint:
+    desc: Run linter
+    cmds:
+      - uv run ruff check .
 
   test:
     desc: Run tests
+    env:
+      PYTHONPATH: .
     cmds:
-      - source .venv/bin/activate && pylint **/*.py
-      - source .venv/bin/activate && PYTHONPATH=. pytest -v ./tests
+      - uv run pytest -v ./tests
+
+  test:chat:
+    desc: Test Ollama chat completions endpoint
+    deps: [ollama:check]
+    cmds:
+      - |
+        curl -s http://localhost:11434/v1/chat/completions \
+          -H "Content-Type: application/json" \
+          -d '{
+            "model": "gemma4",
+            "messages": [
+              {"role": "user", "content": "Explain how transformers work in two sentences."}
+            ]
+          }' | jq .
 
   docker:build:
     desc: Build the Docker container
