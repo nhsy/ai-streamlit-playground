@@ -2,7 +2,7 @@
 name = "ai-streamlit-playground"
 version = "0.1.0"
 description = "AI Streamlit Playground"
-requires-python = ">=3.12"
+requires-python = "==3.14.*"
 dependencies = [
     "altair==6.0.0",
     "annotated-types==0.7.0",
@@ -90,6 +90,9 @@ dev = [
     "pre-commit>=4.5.1",
     "ruff>=0.15.9",
 ]
+
+[tool.pylint."messages_control"]
+disable = ["line-too-long"]
 
 [tool.ruff]
 line-length = 120

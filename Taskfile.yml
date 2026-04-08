@@ -94,7 +94,7 @@ tasks:
       - docker-compose down
 
 
-  test-ci:
+  test:ci:
     desc: Run GitHub Actions locally using act (requires Docker)
     preconditions:
       - sh: command -v act >/dev/null 2>&1

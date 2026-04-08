@@ -25,3 +25,5 @@ build/
 .env.*.local
 
 *.bak
+/.playwright-mcp/
+/.uv/
