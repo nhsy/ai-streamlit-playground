@@ -8,6 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import core
+from models import ChatMessage
 
 cfg = core.settings()
 st.session_state.setdefault("messages", [])
@@ -15,7 +16,7 @@ messages = st.session_state["messages"]
 
 col_title, col_export, col_reset = st.columns([5, 1.4, 1.2], vertical_alignment="bottom")
 col_title.title("Chat")
-col_title.caption(f"{cfg['provider_label']} · {cfg['model'] or 'no model selected'}")
+col_title.caption(f"{cfg.provider_label} · {cfg.model or 'no model selected'}")
 
 with col_export.popover("Export", icon=":material/ios_share:", width="stretch", disabled=not messages):
     md_text = core.format_chat_as_markdown(messages)
@@ -57,27 +58,27 @@ if not messages:
 AVATARS = {"user": ":material/person:", "assistant": ":material/smart_toy:"}
 
 for message in messages:
-    with st.chat_message(message["role"], avatar=AVATARS[message["role"]]):
-        st.markdown(message.get("display", message["content"]))
+    with st.chat_message(message.role, avatar=AVATARS[message.role]):
+        st.markdown(message.shown)
 
 prompt = st.chat_input("Message", accept_file="multiple", file_type=core.UPLOAD_TYPES)
 if prompt:
-    if not cfg["model"]:
+    if not cfg.model:
         st.error("Please select a model to continue.")
         st.stop()
 
     user_message = core.build_user_message(getattr(prompt, "text", prompt), getattr(prompt, "files", None))
     with st.chat_message("user", avatar=AVATARS["user"]):
-        st.markdown(user_message["display"])
+        st.markdown(user_message.shown)
 
     reply = ""
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
         try:
-            stream = cfg["provider"].chat(
-                model=cfg["model"],
-                messages=core.build_payload([*messages, user_message], cfg["system_prompt"]),
+            stream = cfg.provider.chat(
+                model=cfg.model,
+                messages=core.build_payload([*messages, user_message], cfg.system_prompt),
                 stream=True,
-                options=cfg["options"],
+                options=cfg.options,
             )
             reply = st.write_stream(core.text_chunks(stream))
             if not (isinstance(reply, str) and reply.strip()):
@@ -88,5 +89,5 @@ if prompt:
 
     # Only keep the turn if the model answered; a failed turn leaves history unchanged so it can be retried
     if reply:
-        messages.extend([user_message, {"role": "assistant", "content": reply}])
+        messages.extend([user_message, ChatMessage(role="assistant", content=reply)])
         st.rerun()

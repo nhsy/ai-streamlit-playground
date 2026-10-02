@@ -4,12 +4,13 @@
 import streamlit as st
 
 import core
+from models import ChatMessage
 
 cfg = core.settings()
 st.session_state.setdefault("transformation_text", "")
 
 st.title("Text Transformation")
-st.caption(f"{cfg['provider_label']} · {cfg['model'] or 'no model selected'}")
+st.caption(f"{cfg.provider_label} · {cfg.model or 'no model selected'}")
 
 templates = core.load_templates()
 selected_template = st.selectbox("Template", list(templates.keys()))
@@ -31,7 +32,7 @@ if col_reset.button("Reset", icon=":material/delete:", width="stretch", help="Cl
     st.rerun()
 
 if transform_clicked:
-    if not cfg["model"]:
+    if not cfg.model:
         st.error("Please select a model first.")
     elif not user_text:
         st.warning("Please enter some text to transform.")
@@ -40,11 +41,11 @@ if transform_clicked:
         with st.container(border=True):
             st.caption("Result")
             try:
-                stream = cfg["provider"].chat(
-                    model=cfg["model"],
-                    messages=core.build_payload([{"role": "user", "content": prompt}], cfg["system_prompt"]),
+                stream = cfg.provider.chat(
+                    model=cfg.model,
+                    messages=core.build_payload([ChatMessage(role="user", content=prompt)], cfg.system_prompt),
                     stream=True,
-                    options=cfg["options"],
+                    options=cfg.options,
                 )
                 st.write_stream(core.text_chunks(stream))
             except Exception as e:  # pylint: disable=broad-exception-caught

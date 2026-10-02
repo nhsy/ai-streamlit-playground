@@ -7,6 +7,8 @@ import streamlit as st
 from streamlit.proto.WidgetStates_pb2 import WidgetState  # pylint: disable=no-name-in-module
 from streamlit.testing.v1.element_tree import ChatInput
 
+from models import AppConfig, ProviderConfig
+
 
 def _chat_input_widget_state(self):
     """AppTest only sends plain-text chat values; file-enabled chat inputs expect a chat_input_value."""
@@ -42,7 +44,7 @@ def mock_app_env():
         patch("providers.watsonx_provider.WatsonxProvider.is_available") as mock_wx_avail,
         patch("providers.gemini_provider.GeminiProvider.is_available") as mock_gemini_avail,
         patch("providers.openrouter_provider.OpenRouterProvider.is_available") as mock_or_avail,
-        patch("core.load_config") as mock_load_config,
+        patch("core.load_app_config") as mock_load_config,
         patch.dict("os.environ", {"OLLAMA_ENABLED": "true"}),
     ):
         # Setup default mock behavior
@@ -51,19 +53,19 @@ def mock_app_env():
         mock_gemini_avail.return_value = False
         mock_or_avail.return_value = False
 
-        # Mock load_config to return stable defaults for testing
-        mock_load_config.return_value = {
-            "default_provider": "ollama",
-            "providers": {"ollama": {"default_model": "llama3"}},
-            "templates": {
+        # Mock load_app_config to return stable defaults for testing
+        mock_load_config.return_value = AppConfig(
+            default_provider="ollama",
+            providers={"ollama": ProviderConfig(default_model="llama3")},
+            templates={
                 "Summarize": "Summarize the following text:",
                 "Fix Grammar": "Fix grammar:",
                 "Rewrite Professionally": "Rewrite:",
                 "Email": "Write a professional email based on:",
             },
-        }
+        )
 
-        # Mock chat to return a generator for streaming
+        # Mock chat to return a generator for streaming (raw Ollama chunks are plain dicts)
         def stream_response(*_args, **_kwargs):
             yield {"message": {"content": "This is a "}}
             yield {"message": {"content": "mock response."}}

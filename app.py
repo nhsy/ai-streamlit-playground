@@ -9,6 +9,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 import core
+from models import GenerationOptions
 
 # Load environment variables from .env file
 load_dotenv()
@@ -89,9 +90,7 @@ def select_model(provider_key, provider, config):
         st.warning(f"No models found for {core.PROVIDERS[provider_key][0]}.")
         return None
 
-    default_model = config.get("providers", {}).get(provider_key, {}).get("default_model") or config.get(
-        "default_model"
-    )
+    default_model = config.default_model_for(provider_key)
     default_index = model_names.index(default_model) if default_model in model_names else 0
     widget_key = f"selected_model_{provider_key}"
     current = st.session_state.get(widget_key) or model_names[default_index]
@@ -115,7 +114,7 @@ def sidebar_settings():
         st.stop()
 
     config = core.get_config()
-    default_provider = config.get("default_provider", "")
+    default_provider = config.default_provider
     provider_key = st.selectbox(
         "Provider",
         provider_keys,
@@ -153,13 +152,13 @@ def sidebar_settings():
     )
     st.session_state["system_prompt_input"] = system_prompt
 
-    return {
-        "provider": provider,
-        "provider_label": label,
-        "model": model,
-        "system_prompt": system_prompt,
-        "options": {"temperature": temperature, "top_p": top_p},
-    }
+    return core.SidebarSettings(
+        provider=provider,
+        provider_label=label,
+        model=model,
+        system_prompt=system_prompt,
+        options=GenerationOptions(temperature=temperature, top_p=top_p),
+    )
 
 
 page = st.navigation(

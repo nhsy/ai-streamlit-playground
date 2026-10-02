@@ -1,21 +1,29 @@
 """IBM watsonx provider implementation."""
 
-import os
-from typing import Any, Dict, Iterator, List
+from typing import Iterator
+
+from models import ChatChunk, ChatMessage, GenerationOptions
 
 from .base import BaseProvider
+from .settings import WatsonxSettings
 
 
 class WatsonxProvider(BaseProvider):
     """Provider implementation for IBM watsonx.ai models."""
 
-    def __init__(self):
-        """Initialize watsonx provider with credentials from environment."""
+    def __init__(self, settings: WatsonxSettings | None = None):
+        """
+        Initialize watsonx provider.
+
+        Args:
+            settings: Provider settings; read from the environment if None
+        """
+        settings = settings or WatsonxSettings()
         self._name = "IBM watsonx"
-        self._api_key = os.getenv("WATSONX_API_KEY")
-        self._project_id = os.getenv("WATSONX_PROJECT_ID")
-        self._url = os.getenv("WATSONX_URL", "https://eu-gb.ml.cloud.ibm.com")
-        self._enabled = os.getenv("WATSONX_ENABLED", "true").lower() == "true"
+        self._api_key = settings.api_key.get_secret_value() if settings.api_key else None
+        self._project_id = settings.project_id
+        self._url = settings.url
+        self._enabled = settings.enabled
         self._client = None
         self._credentials = None
 
@@ -49,12 +57,12 @@ class WatsonxProvider(BaseProvider):
             return False
         return bool(self._api_key and self._project_id and self._credentials)
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """
         Get list of available watsonx models.
 
         Returns:
-            List[str]: List of model identifiers
+            list[str]: List of model identifiers
 
         Raises:
             Exception: If credentials are not configured
@@ -98,19 +106,23 @@ class WatsonxProvider(BaseProvider):
             ]
 
     def chat(
-        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        stream: bool = True,
+        options: GenerationOptions | None = None,
+    ) -> Iterator[ChatChunk]:
         """
         Send a chat completion request to watsonx.
 
         Args:
             model: watsonx model identifier
-            messages: List of message dicts with 'role' and 'content'
+            messages: Conversation history as ChatMessage objects
             stream: Whether to stream the response
-            options: Options like temperature, top_p
+            options: Sampling options; defaults if None
 
         Yields:
-            Dict containing response chunks in Ollama-compatible format
+            ChatChunk: Response chunks
 
         Raises:
             Exception: If the request fails or credentials are missing
@@ -129,17 +141,16 @@ class WatsonxProvider(BaseProvider):
                 "ibm-watsonx-ai package not installed. Install it with: pip install ibm-watsonx-ai"
             ) from exc
 
-        if options is None:
-            options = {}
+        options = options or GenerationOptions()
 
         # Convert messages to watsonx format (concatenate into prompt)
         prompt = self._messages_to_prompt(messages)
 
         # Map options to watsonx parameters
         params = {
-            GenParams.MAX_NEW_TOKENS: options.get("max_tokens", 1024),
-            GenParams.TEMPERATURE: options.get("temperature", 0.7),
-            GenParams.TOP_P: options.get("top_p", 0.9),
+            GenParams.MAX_NEW_TOKENS: options.max_tokens,
+            GenParams.TEMPERATURE: options.temperature,
+            GenParams.TOP_P: options.top_p,
         }
 
         # Create model instance
@@ -151,19 +162,18 @@ class WatsonxProvider(BaseProvider):
             # Stream response
             response_stream = model_instance.generate_text_stream(prompt=prompt)
             for chunk_text in response_stream:
-                # Convert to Ollama-compatible format
-                yield {"message": {"content": chunk_text}}
+                yield ChatChunk.of(chunk_text)
         else:
             # Non-streaming response
             response = model_instance.generate_text(prompt=prompt)
-            yield {"message": {"content": response}}
+            yield ChatChunk.of(response)
 
-    def _messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
+    def _messages_to_prompt(self, messages: list[ChatMessage]) -> str:
         """
         Convert chat messages to a single prompt string.
 
         Args:
-            messages: List of message dicts with 'role' and 'content'
+            messages: Conversation history as ChatMessage objects
 
         Returns:
             str: Formatted prompt string
@@ -171,8 +181,8 @@ class WatsonxProvider(BaseProvider):
         prompt_parts = []
 
         for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
+            role = msg.role
+            content = msg.content
 
             if role == "system":
                 prompt_parts.append(f"System: {content}")

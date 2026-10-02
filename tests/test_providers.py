@@ -4,8 +4,11 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from ollama import ListResponse
 
+from models import ChatMessage, GenerationOptions, ModelInfo
 from providers import OllamaProvider, WatsonxProvider
+from providers.settings import OllamaSettings, WatsonxSettings
 
 
 class TestOllamaProvider:
@@ -33,12 +36,59 @@ class TestOllamaProvider:
             assert provider.is_available() is False
 
     @patch("providers.ollama_provider.ollama.list")
+    def test_is_available_when_disabled(self, mock_list):
+        """Test is_available returns False when disabled, without contacting Ollama."""
+        provider = OllamaProvider(OllamaSettings(enabled=False))
+        assert provider.is_available() is False
+        mock_list.assert_not_called()
+
+    @patch("providers.ollama_provider.ollama.list")
     def test_list_models(self, mock_list):
         """Test list_models returns correct model names."""
         mock_list.return_value = {"models": [{"model": "llama2:latest"}, {"model": "mistral:latest"}]}
         provider = OllamaProvider()
         models = provider.list_models()
         assert models == ["llama2:latest", "mistral:latest"]
+
+    @patch("providers.ollama_provider.ollama.list")
+    def test_get_model_info_from_dicts(self, mock_list):
+        """Test list_models caches ModelInfo built from plain dict entries."""
+        mock_list.return_value = {
+            "models": [
+                {
+                    "model": "llama2:latest",
+                    "size": 3_800_000_000,
+                    "digest": "abc",
+                    "details": {"parameter_size": "7B", "quantization_level": "Q4_0", "family": "llama"},
+                }
+            ]
+        }
+        provider = OllamaProvider()
+        provider.list_models()
+
+        info = provider.get_model_info("llama2:latest")
+        assert isinstance(info, ModelInfo)
+        assert info.size == 3_800_000_000
+        assert info.details.parameter_size == "7B"
+        assert info.details.quantization_level == "Q4_0"
+        assert info.details.family == "llama"
+
+    @patch("providers.ollama_provider.ollama.list")
+    def test_get_model_info_from_sdk_models(self, mock_list):
+        """Test list_models handles the Ollama SDK's ListResponse model objects."""
+        mock_list.return_value = ListResponse.model_validate(
+            {"models": [{"model": "mistral:latest", "size": 42, "details": {"family": "mistral"}}]}
+        )
+        provider = OllamaProvider()
+
+        assert provider.list_models() == ["mistral:latest"]
+        info = provider.get_model_info("mistral:latest")
+        assert info.size == 42
+        assert info.details.family == "mistral"
+
+    def test_get_model_info_unknown_model(self):
+        """Test get_model_info returns an empty ModelInfo for uncached models."""
+        assert OllamaProvider().get_model_info("unknown") == ModelInfo()
 
     @patch("providers.ollama_provider.ollama.chat")
     def test_chat_streaming(self, mock_chat):
@@ -47,17 +97,32 @@ class TestOllamaProvider:
         mock_chat.return_value = [{"message": {"content": "Hello"}}, {"message": {"content": " world"}}]
 
         provider = OllamaProvider()
-        messages = [{"role": "user", "content": "Hi"}]
-        options = {"temperature": 0.7, "top_p": 0.9}
+        messages = [ChatMessage(role="user", content="Hi", display="shown only in the UI")]
+        options = GenerationOptions(temperature=0.5, top_p=0.8, max_tokens=256)
 
         response = list(provider.chat(model="llama2:latest", messages=messages, stream=True, options=options))
 
         assert len(response) == 2
-        assert response[0]["message"]["content"] == "Hello"
-        assert response[1]["message"]["content"] == " world"
+        assert response[0].message.content == "Hello"
+        assert response[1].message.content == " world"
 
-        # Verify ollama.chat was called with correct parameters
-        mock_chat.assert_called_once_with(model="llama2:latest", messages=messages, stream=True, options=options)
+        # Ollama receives plain dicts (role/content only) and the sampling options it supports
+        mock_chat.assert_called_once_with(
+            model="llama2:latest",
+            messages=[{"role": "user", "content": "Hi"}],
+            stream=True,
+            options={"temperature": 0.5, "top_p": 0.8},
+        )
+
+    @patch("providers.ollama_provider.ollama.chat")
+    def test_chat_default_options(self, mock_chat):
+        """Test chat falls back to GenerationOptions defaults when options is None."""
+        mock_chat.return_value = [{"message": {"content": "Hi"}}]
+
+        provider = OllamaProvider()
+        list(provider.chat(model="llama2:latest", messages=[ChatMessage(role="user", content="Hi")]))
+
+        assert mock_chat.call_args[1]["options"] == {"temperature": 0.7, "top_p": 0.9}
 
     @patch("providers.ollama_provider.ollama.pull")
     def test_pull_model(self, mock_pull):
@@ -107,6 +172,29 @@ class TestWatsonxProvider:
             ):
                 provider = WatsonxProvider()
                 assert provider.is_available() is True
+
+    def test_initialization_with_settings(self):
+        """Test WatsonxProvider reads credentials from an explicit settings object."""
+        mock_ibm_module = MagicMock()
+        mock_credentials = mock_ibm_module.Credentials
+        with patch.dict(
+            "sys.modules",
+            {"ibm_watsonx_ai": mock_ibm_module, "ibm_watsonx_ai.foundation_models": mock_ibm_module.foundation_models},
+        ):
+            settings = WatsonxSettings(
+                api_key="secret-key", project_id="test-project", url="https://us-south.ml.cloud.ibm.com"
+            )
+            provider = WatsonxProvider(settings)
+
+            assert provider.is_available() is True
+            # The secret is unwrapped before it reaches the SDK
+            mock_credentials.assert_called_once_with(url="https://us-south.ml.cloud.ibm.com", api_key="secret-key")
+
+    def test_disabled_via_settings(self):
+        """Test is_available returns False when disabled, even with credentials."""
+        with patch.dict("sys.modules", {"ibm_watsonx_ai": MagicMock()}):
+            settings = WatsonxSettings(api_key="secret-key", project_id="test-project", enabled=False)
+            assert WatsonxProvider(settings).is_available() is False
 
     def test_default_url_is_uk(self):
         """Test that default URL is UK region."""
@@ -202,10 +290,10 @@ class TestWatsonxProvider:
                 provider = WatsonxProvider()
 
                 messages = [
-                    {"role": "system", "content": "You are helpful"},
-                    {"role": "user", "content": "Hello"},
-                    {"role": "assistant", "content": "Hi there"},
-                    {"role": "user", "content": "How are you?"},
+                    ChatMessage(role="system", content="You are helpful"),
+                    ChatMessage(role="user", content="Hello"),
+                    ChatMessage(role="assistant", content="Hi there"),
+                    ChatMessage(role="user", content="How are you?"),
                 ]
 
                 # pylint: disable=protected-access
@@ -248,22 +336,26 @@ class TestWatsonxProvider:
                 {"WATSONX_API_KEY": "test-key", "WATSONX_PROJECT_ID": "test-project", "WATSONX_ENABLED": "true"},
             ):
                 provider = WatsonxProvider()
-                messages = [{"role": "user", "content": "Hi"}]
+                messages = [ChatMessage(role="user", content="Hi")]
 
                 response = list(
                     provider.chat(
                         model="ibm/granite-13b-chat-v2",
                         messages=messages,
                         stream=True,
-                        options={"temperature": 0.7, "top_p": 0.9},
+                        options=GenerationOptions(temperature=0.3, top_p=0.6, max_tokens=512),
                     )
                 )
 
                 # Check response format
                 assert len(response) == 3
-                assert response[0]["message"]["content"] == "Hello"
-                assert response[1]["message"]["content"] == " world"
-                assert response[2]["message"]["content"] == "!"
+                assert response[0].message.content == "Hello"
+                assert response[1].message.content == " world"
+                assert response[2].message.content == "!"
+
+                # Options are mapped to watsonx generation parameters
+                params = mock_model_inference.call_args[1]["params"]
+                assert params == {"max_new_tokens": 512, "temperature": 0.3, "top_p": 0.6}
 
     def test_chat_non_streaming(self):
         """Test chat method without streaming."""
@@ -296,23 +388,23 @@ class TestWatsonxProvider:
                 {"WATSONX_API_KEY": "test-key", "WATSONX_PROJECT_ID": "test-project", "WATSONX_ENABLED": "true"},
             ):
                 provider = WatsonxProvider()
-                messages = [{"role": "user", "content": "Hi"}]
+                messages = [ChatMessage(role="user", content="Hi")]
 
-                response = list(
-                    provider.chat(
-                        model="ibm/granite-13b-chat-v2", messages=messages, stream=False, options={"temperature": 0.7}
-                    )
-                )
+                response = list(provider.chat(model="ibm/granite-13b-chat-v2", messages=messages, stream=False))
 
                 # Check response format
                 assert len(response) == 1
-                assert response[0]["message"]["content"] == "Hello world!"
+                assert response[0].message.content == "Hello world!"
+
+                # GenerationOptions defaults are used when options is None
+                params = mock_model_inference.call_args[1]["params"]
+                assert params == {"max_new_tokens": 1024, "temperature": 0.7, "top_p": 0.9}
 
     def test_chat_without_credentials(self):
         """Test chat raises exception without credentials."""
         with patch.dict(os.environ, {"WATSONX_ENABLED": "true"}, clear=True):
             provider = WatsonxProvider()
-            messages = [{"role": "user", "content": "Hi"}]
+            messages = [ChatMessage(role="user", content="Hi")]
 
             with pytest.raises(RuntimeError, match="watsonx credentials not configured"):
                 list(provider.chat(model="ibm/granite-13b-chat-v2", messages=messages, stream=True))
@@ -344,3 +436,8 @@ class TestProviderInterface:
         assert callable(provider.list_models)
         assert callable(provider.chat)
         assert callable(provider.get_name)
+
+    def test_base_get_model_info_default(self):
+        """Test providers without metadata return an empty ModelInfo."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert WatsonxProvider().get_model_info("any-model") == ModelInfo()

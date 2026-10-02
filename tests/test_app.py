@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
+from models import ChatMessage
+
 # The mock_app_env fixture is in conftest.py
 
 TRANSFORM_PAGE = "views/transform.py"
@@ -98,8 +100,8 @@ def test_chat_execution(mock_app_env):
     mock_chat.assert_called()
     assert mock_chat.call_args[1]["messages"][-1]["content"] == "Hello"
     assert len(at.session_state["messages"]) == 2  # User + Assistant
-    assert at.session_state["messages"][0]["role"] == "user"
-    assert at.session_state["messages"][1] == {"role": "assistant", "content": "This is a mock response."}
+    assert at.session_state["messages"][0].role == "user"
+    assert at.session_state["messages"][1] == ChatMessage(role="assistant", content="This is a mock response.")
 
 
 def test_chat_history_keeps_expanded_content(mock_app_env):

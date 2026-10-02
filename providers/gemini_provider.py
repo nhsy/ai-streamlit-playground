@@ -1,22 +1,30 @@
 """Google Gemini provider implementation using google-genai SDK."""
 
-import os
-from typing import Any, Dict, Iterator, List
+from typing import Iterator
 
 from google import genai
 from google.genai import types
 
+from models import ChatChunk, ChatMessage, GenerationOptions
+
 from .base import BaseProvider
+from .settings import GeminiSettings
 
 
 class GeminiProvider(BaseProvider):
     """Provider implementation for Google Gemini models."""
 
-    def __init__(self):
-        """Initialize Gemini provider."""
+    def __init__(self, settings: GeminiSettings | None = None):
+        """
+        Initialize Gemini provider.
+
+        Args:
+            settings: Provider settings; read from the environment if None
+        """
+        settings = settings or GeminiSettings()
         self._name = "Google Gemini"
-        self._api_key = os.getenv("GEMINI_API_KEY")
-        self._enabled = os.getenv("GEMINI_ENABLED", "true").lower() == "true"
+        self._api_key = settings.api_key.get_secret_value() if settings.api_key else None
+        self._enabled = settings.enabled
         self._client = None
 
         if self._api_key:
@@ -33,12 +41,12 @@ class GeminiProvider(BaseProvider):
             return False
         return bool(self._api_key)
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """
         Get list of available Gemini models from the API.
 
         Returns:
-            List[str]: List of model identifiers
+            list[str]: List of model identifiers
         """
         if not self._client:
             return []
@@ -76,25 +84,29 @@ class GeminiProvider(BaseProvider):
             ]
 
     def chat(
-        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        stream: bool = True,
+        options: GenerationOptions | None = None,
+    ) -> Iterator[ChatChunk]:
         """
         Send a chat completion request to Gemini.
 
         Args:
             model: Gemini model identifier
-            messages: List of message dicts
+            messages: Conversation history as ChatMessage objects
             stream: Whether to stream (always True for now)
-            options: Model parameters
+            options: Sampling options; if None, temperature 0.7 and top_p 0.95 are used
 
         Yields:
-            Dict containing response chunks
+            ChatChunk: Response chunks
         """
         if not self._client:
             raise RuntimeError("Gemini API key not configured.")
 
-        if options is None:
-            options = {}
+        # Gemini keeps its own top_p default when no options are given
+        temperature, top_p = (options.temperature, options.top_p) if options else (0.7, 0.95)
 
         # Convert messages to Gemini format if needed, OR relies on SDK's ability to handle
         # standard formats. The new SDK `models.generate_content` is versatile.
@@ -104,8 +116,8 @@ class GeminiProvider(BaseProvider):
         chat_history = []
 
         for msg in messages:
-            role = msg.get("role")
-            content = msg.get("content")
+            role = msg.role
+            content = msg.content
             if role == "system":
                 system_instruction = content
             elif role == "user":
@@ -124,8 +136,8 @@ class GeminiProvider(BaseProvider):
 
         # New SDK approach:
         config = types.GenerateContentConfig(
-            temperature=options.get("temperature", 0.7),
-            top_p=options.get("top_p", 0.95),
+            temperature=temperature,
+            top_p=top_p,
             system_instruction=system_instruction,
         )
 
@@ -139,7 +151,7 @@ class GeminiProvider(BaseProvider):
 
         for chunk in response:
             if chunk.text:
-                yield {"message": {"content": chunk.text}}
+                yield ChatChunk.of(chunk.text)
 
     def get_name(self) -> str:
         """Get the provider name."""

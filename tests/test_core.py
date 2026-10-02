@@ -4,6 +4,7 @@
 from unittest.mock import MagicMock
 
 import core
+from models import ChatChunk, ChatMessage, ModelDetails, ModelInfo
 
 
 def make_file(name, text):
@@ -39,22 +40,22 @@ def test_process_prompt_missing_and_truncated(tmp_path, monkeypatch):
 def test_build_user_message_keeps_file_content():
     message = core.build_user_message("Summarise this", [make_file("notes.txt", "launch is on Friday")])
 
-    assert "launch is on Friday" in message["content"]
-    assert "launch is on Friday" not in message["display"]
-    assert "notes.txt" in message["display"]
+    assert "launch is on Friday" in message.content
+    assert "launch is on Friday" not in message.shown
+    assert "notes.txt" in message.shown
 
 
 def test_build_payload_uses_stored_content():
     history = [
-        {"role": "user", "content": "expanded", "display": "short"},
-        {"role": "assistant", "content": "reply"},
+        ChatMessage(role="user", content="expanded", display="short"),
+        ChatMessage(role="assistant", content="reply"),
     ]
     payload = core.build_payload(history, "be brief")
 
     assert payload == [
-        {"role": "system", "content": "be brief"},
-        {"role": "user", "content": "expanded"},
-        {"role": "assistant", "content": "reply"},
+        ChatMessage(role="system", content="be brief"),
+        ChatMessage(role="user", content="expanded"),
+        ChatMessage(role="assistant", content="reply"),
     ]
 
 
@@ -62,22 +63,32 @@ def test_model_help_ollama_and_display_name():
     provider = MagicMock()
     provider.get_name.return_value = "OpenRouter"
 
-    provider.get_model_info.return_value = {"size": 2 * 1024**3, "details": {"parameter_size": "7B"}}
-    assert "2.00 GB" in core.model_help(provider, "qwen")
+    provider.get_model_info.return_value = ModelInfo(size=2 * 1024**3, details=ModelDetails(parameter_size="7B"))
+    help_text = core.model_help(provider, "qwen")
+    assert "2.00 GB" in help_text
+    assert "7B" in help_text
+    assert "**Quant:** Unknown" in help_text
 
-    provider.get_model_info.return_value = {"details": {"display_name": "Auto (Free)"}}
+    provider.get_model_info.return_value = ModelInfo(details=ModelDetails(display_name="Auto (Free)"))
     help_text = core.model_help(provider, "openrouter/auto")
     assert "Auto (Free)" in help_text
     assert "GB" not in help_text
 
 
 def test_text_chunks_skips_empty():
-    stream = [{"message": {"content": "a"}}, {"message": {"content": ""}}, {"message": {"content": "b"}}]
+    stream = [ChatChunk.of("a"), ChatChunk.of(""), ChatChunk.of("b")]
     assert list(core.text_chunks(stream)) == ["a", "b"]
 
 
 def test_markdown_export_uses_display_text():
-    messages = [{"role": "user", "content": "huge file dump", "display": "short"}]
+    messages = [ChatMessage(role="user", content="huge file dump", display="short")]
     exported = core.format_chat_as_markdown(messages)
     assert "short" in exported
     assert "huge file dump" not in exported
+
+
+def test_html_export_escapes_display_text():
+    messages = [ChatMessage(role="assistant", content="<b>hi</b>")]
+    exported = core.format_chat_as_html(messages)
+    assert "&lt;b&gt;hi&lt;/b&gt;" in exported
+    assert 'class="message assistant"' in exported

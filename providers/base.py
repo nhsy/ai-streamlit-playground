@@ -1,7 +1,9 @@
 """Base abstract class for LLM providers."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List
+from typing import Iterator
+
+from models import ChatChunk, ChatMessage, GenerationOptions, ModelInfo
 
 
 class BaseProvider(ABC):
@@ -17,18 +19,18 @@ class BaseProvider(ABC):
         """
 
     @abstractmethod
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         """
         Get list of available models from the provider.
 
         Returns:
-            List[str]: List of model names/identifiers
+            list[str]: List of model names/identifiers
 
         Raises:
             Exception: If provider is not available or connection fails
         """
 
-    def get_model_info(self, _model: str) -> Dict[str, Any]:
+    def get_model_info(self, _model: str) -> ModelInfo:
         """
         Get metadata for a specific model.
 
@@ -36,30 +38,29 @@ class BaseProvider(ABC):
             model: Model identifier
 
         Returns:
-            Dict: Model metadata
+            ModelInfo: Model metadata (empty by default)
         """
-        return {}
+        return ModelInfo()
 
     @abstractmethod
     def chat(
-        self, model: str, messages: List[Dict[str, str]], stream: bool = True, options: Dict[str, Any] = None
-    ) -> Iterator[Dict[str, Any]]:
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        stream: bool = True,
+        options: GenerationOptions | None = None,
+    ) -> Iterator[ChatChunk]:
         """
         Send a chat completion request.
 
         Args:
             model: Model identifier
-            messages: List of message dicts with 'role' and 'content'
+            messages: Conversation history as ChatMessage objects
             stream: Whether to stream the response
-            options: Provider-specific options (temperature, top_p, etc.)
+            options: Sampling options (temperature, top_p, max_tokens); defaults if None
 
         Yields:
-            Dict containing response chunks with structure:
-            {
-                'message': {
-                    'content': str  # The text content
-                }
-            }
+            ChatChunk: Response chunks; the text is in chunk.message.content
 
         Raises:
             Exception: If the request fails

@@ -1,7 +1,6 @@
 """Shared helpers for the AI Streamlit Playground: config, providers, prompts and exports."""
 
 import html as html_module
-import json
 import logging
 import os
 import re
@@ -11,8 +10,11 @@ from pathlib import Path
 import docx
 import pypdf
 import streamlit as st
+from pydantic import BaseModel, ConfigDict
 
+from models import AppConfig, ChatMessage, GenerationOptions, ModelInfo, load_app_config
 from providers import GeminiProvider, OllamaProvider, OpenRouterProvider, WatsonxProvider
+from providers.base import BaseProvider
 
 logger = logging.getLogger(__name__)
 
@@ -33,27 +35,15 @@ PROVIDERS = {
 # --- Config & templates -----------------------------------------------------
 
 
-def load_config():
-    """Load configuration from config.json, falling back to empty defaults."""
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
-            logger.warning("Error loading %s: %s", CONFIG_PATH, e)
-
-    return {"default_model": None, "templates": {}, "providers": {}}
-
-
 @st.cache_data(ttl=10, show_spinner=False)
-def get_config():
+def get_config() -> AppConfig:
     """Cached config, re-read at most every 10 seconds."""
-    return load_config()
+    return load_app_config(CONFIG_PATH)
 
 
 def load_templates():
     """Load templates from the config and the templates folder."""
-    templates = get_config().get("templates", {}).copy()
+    templates = dict(get_config().templates)
 
     if os.path.exists(TEMPLATE_DIR):
         for filename in sorted(os.listdir(TEMPLATE_DIR)):
@@ -91,18 +81,18 @@ def list_models(key):
 
 def model_help(provider, model):
     """Tooltip text describing a model, from whatever metadata the provider returns."""
-    info = provider.get_model_info(model) or {}
-    details = info.get("details", {})
+    info = provider.get_model_info(model) or ModelInfo()
+    details = info.details
 
-    if "size" in info:
+    if info.size is not None:
         return (
             f"**{model}**\n\n"
-            f"- **Size:** {info['size'] / (1024**3):.2f} GB\n"
-            f"- **Params:** {details.get('parameter_size', 'Unknown')}\n"
-            f"- **Quant:** {details.get('quantization_level', 'Unknown')}\n"
-            f"- **Family:** {details.get('family', 'Unknown')}"
+            f"- **Size:** {info.size / (1024**3):.2f} GB\n"
+            f"- **Params:** {details.parameter_size or 'Unknown'}\n"
+            f"- **Quant:** {details.quantization_level or 'Unknown'}\n"
+            f"- **Family:** {details.family or 'Unknown'}"
         )
-    display_name = details.get("display_name")
+    display_name = details.display_name
     if display_name and display_name != model:
         return f"**{display_name}**\n\nID: `{model}`"
     return f"Available models from {provider.get_name()}"
@@ -111,7 +101,7 @@ def model_help(provider, model):
 def text_chunks(stream):
     """Adapt a provider chat stream to plain text chunks for st.write_stream."""
     for chunk in stream:
-        content = chunk["message"]["content"]
+        content = chunk.message.content
         if content:
             yield content
 
@@ -177,7 +167,7 @@ def read_uploaded_file(file):
         return f"[Error reading {file.name}: {e}]"
 
 
-def build_user_message(text, files=None):
+def build_user_message(text, files=None) -> ChatMessage:
     """
     Build a user chat message.
     'content' is what the model sees (file refs and uploads expanded) and is kept in history,
@@ -195,22 +185,18 @@ def build_user_message(text, files=None):
         names = ", ".join(f"`{file.name}`" for file in files)
         display = f"{display}\n\n*Attached: {names}*".strip()
 
-    return {"role": "user", "content": content, "display": display}
+    return ChatMessage(role="user", content=content, display=display)
 
 
 # --- Export -----------------------------------------------------------------
-
-
-def _shown(msg):
-    return msg.get("display", msg["content"])
 
 
 def format_chat_as_markdown(messages):
     """Convert chat messages to a markdown string."""
     lines = [f"# Chat Export\n\n_Exported on {datetime.now().strftime('%Y-%m-%d %H:%M')}_\n"]
     for msg in messages:
-        role = "User" if msg["role"] == "user" else "Assistant"
-        lines.append(f"---\n\n**{role}:**\n\n{_shown(msg)}\n")
+        role = "User" if msg.role == "user" else "Assistant"
+        lines.append(f"---\n\n**{role}:**\n\n{msg.shown}\n")
     return "\n".join(lines)
 
 
@@ -218,9 +204,9 @@ def format_chat_as_html(messages):
     """Convert chat messages to a styled HTML document."""
     msg_blocks = []
     for msg in messages:
-        role = "User" if msg["role"] == "user" else "Assistant"
-        css_class = "user" if msg["role"] == "user" else "assistant"
-        escaped = html_module.escape(_shown(msg)).replace("\n", "<br>")
+        role = "User" if msg.role == "user" else "Assistant"
+        css_class = "user" if msg.role == "user" else "assistant"
+        escaped = html_module.escape(msg.shown).replace("\n", "<br>")
         msg_blocks.append(f'<div class="message {css_class}"><strong>{role}</strong><p>{escaped}</p></div>')
     body = "\n".join(msg_blocks)
     return f"""<!DOCTYPE html>
@@ -252,13 +238,26 @@ def format_chat_as_html(messages):
 # --- Session ----------------------------------------------------------------
 
 
-def settings():
+class SidebarSettings(BaseModel):
+    """Sidebar selections shared with the pages."""
+
+    # BaseProvider is a plain ABC, not a pydantic type
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    provider: BaseProvider
+    provider_label: str
+    model: str | None
+    system_prompt: str
+    options: GenerationOptions
+
+
+def settings() -> SidebarSettings:
     """Sidebar selections shared with the pages (set by app.py on every run)."""
     return st.session_state["settings"]
 
 
-def build_payload(history, system_prompt):
-    """Messages to send to the provider: optional system prompt plus the stored history."""
-    payload = [{"role": "system", "content": system_prompt}] if system_prompt else []
-    payload.extend({"role": m["role"], "content": m["content"]} for m in history)
+def build_payload(history, system_prompt) -> list[ChatMessage]:
+    """Messages to send to the provider: optional system prompt plus the stored history (display text dropped)."""
+    payload = [ChatMessage(role="system", content=system_prompt)] if system_prompt else []
+    payload.extend(ChatMessage(role=m.role, content=m.content) for m in history)
     return payload
