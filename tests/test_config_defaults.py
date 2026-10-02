@@ -34,7 +34,7 @@ def test_default_provider_ollama(mock_dual_provider_env):
     config_data = {"default_provider": "ollama", "providers": {"ollama": {"default_model": "mistral"}}, "templates": {}}
 
     with patch("builtins.open", mock_open(read_data=json.dumps(config_data))):
-        at = AppTest.from_file("app.py").run()
+        at = AppTest.from_file("../app.py").run()
         # Provider selectbox is the first one in the sidebar
         provider_selector = at.sidebar.selectbox[0]
         assert provider_selector.value == "ollama"
@@ -62,7 +62,7 @@ def test_default_provider_watsonx(mock_dual_provider_env):
     ):
         mock_wx_models.return_value = ["meta-llama/llama-3-3-70b-instruct", "google/flan-t5-xl"]
 
-        at = AppTest.from_file("app.py").run()
+        at = AppTest.from_file("../app.py").run()
 
         # Provider selectbox is the first one in the sidebar
         provider_selector = at.sidebar.selectbox[0]
@@ -78,7 +78,7 @@ def test_fallback_when_default_provider_invalid(mock_dual_provider_env):
     config_data = {"default_provider": "nonexistent", "providers": {}, "templates": {}}
 
     with patch("builtins.open", mock_open(read_data=json.dumps(config_data))):
-        at = AppTest.from_file("app.py").run()
+        at = AppTest.from_file("../app.py").run()
         provider_selector = at.sidebar.selectbox[0]
         # Should fall back to the first available (ollama)
         assert provider_selector.value == "ollama"

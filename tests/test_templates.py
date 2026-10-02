@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest
 
 def test_json_config_templates_loaded(mock_app_env):
     """Verify that templates defined in template_config.json are available."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     # Open the Text Transformation page
     at.switch_page("views/transform.py").run()
@@ -26,7 +26,7 @@ def test_json_config_templates_loaded(mock_app_env):
 
 def test_template_text_correctness(mock_app_env):
     """Verify that selecting a JSON template loads the correct prompt text."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
     at.switch_page("views/transform.py").run()
 
     # Select specific template

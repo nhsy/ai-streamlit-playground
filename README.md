@@ -267,6 +267,8 @@ GEMINI_ENABLED=true
 OLLAMA_ENABLED=true                         # Set to 'false' to explicitly disable Ollama
 ```
 
+Variables are read with `pydantic-settings` (`providers/settings.py`). The `*_ENABLED` flags accept `true`/`false`, `1`/`0` or `yes`/`no`; any other value is rejected with a validation error when the provider starts. API keys are held as secrets and are not shown in logs or reprs.
+
 ### Optional Provider
 
 The application will start gracefully even if a provider is missing or unreachable.
@@ -285,7 +287,9 @@ The `docker-compose.yml` mounts the current directory to `/app` in the container
 - `app.py`: entry point. It renders the sidebar settings and the page navigation.
 - `views/chat.py`, `views/transform.py`: the two pages
 - `core.py`: config, cached provider access, prompt expansion, file reading and chat export
+- `models.py`: pydantic models for `config.json` (`AppConfig`), chat messages, stream chunks, model info and generation options
 - `providers/`: one class per LLM provider, implementing `BaseProvider`
+- `providers/settings.py`: per-provider environment settings (`pydantic-settings`)
 
 Provider availability is cached for 30 seconds, and model lists for 60 seconds.
 

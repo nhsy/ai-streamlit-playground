@@ -18,14 +18,14 @@ def open_transform(at):
 
 def test_app_starts_smoke_test(mock_app_env):
     """Test that the app starts on the Chat page without errors."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
     assert not at.exception
     assert at.title[0].value == "Chat"
 
 
 def test_sidebar_defaults(mock_app_env):
     """Test sidebar loads with defaults."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     assert at.sidebar.selectbox[0].value == "ollama"
     assert at.sidebar.selectbox[1].options == ["llama3", "mistral"]
@@ -33,7 +33,7 @@ def test_sidebar_defaults(mock_app_env):
 
 def test_switch_to_transformation_page(mock_app_env):
     """Test navigating to the transformation page."""
-    at = open_transform(AppTest.from_file("app.py").run())
+    at = open_transform(AppTest.from_file("../app.py").run())
 
     assert not at.exception
     assert at.title[0].value == "Text Transformation"
@@ -43,14 +43,14 @@ def test_switch_to_transformation_page(mock_app_env):
 
 def test_custom_template_load(mock_app_env):
     """Test that custom templates are listed."""
-    at = open_transform(AppTest.from_file("app.py").run())
+    at = open_transform(AppTest.from_file("../app.py").run())
     assert "Email" in at.selectbox[0].options
 
 
 def test_prompt_file_expansion(mock_app_env):
     """Test standard prompt file expansion @[path]."""
     _, mock_chat = mock_app_env
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     at.chat_input[0].set_value("Hello @[templates/email.txt]").run()
 
@@ -64,7 +64,7 @@ def test_prompt_file_expansion(mock_app_env):
 def test_prompt_file_expansion_refuses_dotfiles(mock_app_env):
     """@[.env] must never be sent to a provider."""
     _, mock_chat = mock_app_env
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     at.chat_input[0].set_value("Leak @[.env]").run()
 
@@ -75,7 +75,7 @@ def test_prompt_file_expansion_refuses_dotfiles(mock_app_env):
 def test_transformation_execution(mock_app_env):
     """Test running a transformation streams the result."""
     _, mock_chat = mock_app_env
-    at = open_transform(AppTest.from_file("app.py").run())
+    at = open_transform(AppTest.from_file("../app.py").run())
 
     at.selectbox[0].select("Summarize").run()
     txt_area = next(t for t in at.text_area if t.label == "Enter text to transform:")
@@ -93,7 +93,7 @@ def test_transformation_execution(mock_app_env):
 def test_chat_execution(mock_app_env):
     """Test sending a chat message."""
     _, mock_chat = mock_app_env
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     at.chat_input[0].set_value("Hello").run()
 
@@ -107,7 +107,7 @@ def test_chat_execution(mock_app_env):
 def test_chat_history_keeps_expanded_content(mock_app_env):
     """Follow-up turns resend the expanded content of earlier turns, not the bare prompt."""
     _, mock_chat = mock_app_env
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     at.chat_input[0].set_value("Read @[templates/email.txt]").run()
     at.chat_input[0].set_value("And again?").run()
@@ -120,7 +120,7 @@ def test_chat_error_not_added_to_history(mock_app_env):
     """A provider error shows a message and leaves the history unchanged."""
     _, mock_chat = mock_app_env
     mock_chat.side_effect = RuntimeError("boom")
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     at.chat_input[0].set_value("Hello").run()
 
@@ -130,7 +130,7 @@ def test_chat_error_not_added_to_history(mock_app_env):
 
 def test_reset_functionality(mock_app_env):
     """Test that resetting clears the system prompt and transformation text."""
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     sp_area = next(t for t in at.text_area if t.label == "System Prompt")
     sp_area.input("System prompt content").run()
@@ -154,7 +154,7 @@ def test_no_providers_shows_setup_help(mock_app_env):
     """With no provider available the sidebar explains how to configure one."""
     mock_list, _ = mock_app_env
     mock_list.side_effect = ConnectionError("down")
-    at = AppTest.from_file("app.py").run()
+    at = AppTest.from_file("../app.py").run()
 
     assert not at.exception
     assert at.sidebar.error[0].value == "No providers available."
@@ -165,7 +165,7 @@ def test_pull_model(mock_app_env):
     """Pulling a library model streams progress from Ollama."""
     with patch("ollama.pull") as mock_pull:
         mock_pull.return_value = iter([{"status": "downloading", "completed": 5, "total": 10}, {"status": "success"}])
-        at = AppTest.from_file("app.py").run()
+        at = AppTest.from_file("../app.py").run()
         next(b for b in at.button if b.label == "Pull model").click().run()
 
     mock_pull.assert_called_once_with("llama3.2:latest", stream=True)
@@ -175,7 +175,7 @@ def test_pull_model(mock_app_env):
 def test_pull_model_error(mock_app_env):
     """A failed pull is reported in the status box."""
     with patch("ollama.pull", side_effect=RuntimeError("no such model")):
-        at = AppTest.from_file("app.py").run()
+        at = AppTest.from_file("../app.py").run()
         next(b for b in at.button if b.label == "Pull model").click().run()
 
     assert any("no such model" in s.label for s in at.status)

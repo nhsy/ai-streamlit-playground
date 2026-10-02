@@ -101,4 +101,4 @@ tasks:
         msg: "act is not installed. Install it with 'brew install act' or visit https://github.com/nektos/act"
     cmds:
       - act --validate
-      - act --container-architecture linux/arm64 -P ubuntu-latest=catthehacker/ubuntu:act-latest
+      - act -P ubuntu-latest=catthehacker/ubuntu:act-latest
