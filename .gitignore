@@ -27,3 +27,8 @@ build/
 *.bak
 /.playwright-mcp/
 /.uv/
+
+# Local working files
+.tmp/
+.coverage
+.plans/

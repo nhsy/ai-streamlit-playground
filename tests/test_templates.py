@@ -1,34 +1,33 @@
 """Template integration tests for the AI Streamlit Playground."""
+
 # pylint: disable=redefined-outer-name, unused-argument, missing-function-docstring
 from streamlit.testing.v1 import AppTest
 
 # Mock dependencies to avoid actual API calls (reusing logic from test_app.py)
 # The mock_app_env fixture is now in conftest.py
 
+
 def test_json_config_templates_loaded(mock_app_env):
     """Verify that templates defined in template_config.json are available."""
     at = AppTest.from_file("app.py").run()
 
-    # Switch to Text Transformation mode
-    at.sidebar.selectbox[0].select("Text Transformation").run()
+    # Open the Text Transformation page
+    at.switch_page("views/transform.py").run()
 
     # Get options from the template selector
     options = at.selectbox[0].options
 
     # Assert keys from our known json file exist
-    expected_templates = [
-        "Summarize",
-        "Fix Grammar",
-        "Rewrite Professionally"
-    ]
+    expected_templates = ["Summarize", "Fix Grammar", "Rewrite Professionally"]
 
     for template in expected_templates:
         assert template in options
 
+
 def test_template_text_correctness(mock_app_env):
     """Verify that selecting a JSON template loads the correct prompt text."""
     at = AppTest.from_file("app.py").run()
-    at.sidebar.selectbox[0].select("Text Transformation").run()
+    at.switch_page("views/transform.py").run()
 
     # Select specific template
     target_template = "Summarize"
@@ -50,7 +49,7 @@ def test_template_text_correctness(mock_app_env):
     # Verify mock call arguments
     _, mock_chat = mock_app_env
     call_args = mock_chat.call_args[1]
-    sent_content = call_args['messages'][0]['content']
+    sent_content = call_args["messages"][0]["content"]
 
     # The prompt should contain the template text and the user text
     assert "Summarize the following text:" in sent_content

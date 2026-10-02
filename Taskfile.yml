@@ -57,11 +57,11 @@ tasks:
       - uv run ruff check .
 
   test:
-    desc: Run tests
+    desc: Run tests with coverage (fails under 80%)
     env:
       PYTHONPATH: .
     cmds:
-      - uv run pytest -v ./tests
+      - uv run pytest -v --cov --cov-report=term-missing ./tests
 
   test:chat:
     desc: Test Ollama chat completions endpoint

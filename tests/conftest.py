@@ -3,6 +3,34 @@
 from unittest.mock import patch
 
 import pytest
+import streamlit as st
+from streamlit.proto.WidgetStates_pb2 import WidgetState  # pylint: disable=no-name-in-module
+from streamlit.testing.v1.element_tree import ChatInput
+
+
+def _chat_input_widget_state(self):
+    """AppTest only sends plain-text chat values; file-enabled chat inputs expect a chat_input_value."""
+    ws = WidgetState()
+    ws.id = self.id
+    if self._value is not None:  # pylint: disable=protected-access
+        ws.chat_input_value.data = self._value  # pylint: disable=protected-access
+        ws.chat_input_value.file_uploader_state.SetInParent()
+    return ws
+
+
+@pytest.fixture(autouse=True)
+def file_enabled_chat_input():
+    """Let AppTest drive st.chat_input(accept_file=...)."""
+    with patch.object(ChatInput, "_widget_state", property(_chat_input_widget_state)):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def clear_streamlit_caches():
+    """Provider, model and config caches are process-wide; reset them so mocks apply per test."""
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    yield
 
 
 @pytest.fixture
@@ -14,7 +42,7 @@ def mock_app_env():
         patch("providers.watsonx_provider.WatsonxProvider.is_available") as mock_wx_avail,
         patch("providers.gemini_provider.GeminiProvider.is_available") as mock_gemini_avail,
         patch("providers.openrouter_provider.OpenRouterProvider.is_available") as mock_or_avail,
-        patch("app.load_config") as mock_load_config,
+        patch("core.load_config") as mock_load_config,
         patch.dict("os.environ", {"OLLAMA_ENABLED": "true"}),
     ):
         # Setup default mock behavior

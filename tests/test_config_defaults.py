@@ -35,12 +35,12 @@ def test_default_provider_ollama(mock_dual_provider_env):
 
     with patch("builtins.open", mock_open(read_data=json.dumps(config_data))):
         at = AppTest.from_file("app.py").run()
-        # Find provider selectbox (second one in sidebar)
-        provider_selector = at.sidebar.selectbox[1]
-        assert provider_selector.value == "Ollama (Local)"
+        # Provider selectbox is the first one in the sidebar
+        provider_selector = at.sidebar.selectbox[0]
+        assert provider_selector.value == "ollama"
 
         # Check if default model was also applied
-        model_selector = at.sidebar.selectbox[2]
+        model_selector = at.sidebar.selectbox[1]
         assert model_selector.value == "mistral"
 
 
@@ -64,12 +64,12 @@ def test_default_provider_watsonx(mock_dual_provider_env):
 
         at = AppTest.from_file("app.py").run()
 
-        # Find provider selectbox (second one in sidebar)
-        provider_selector = at.sidebar.selectbox[1]
-        assert provider_selector.value == "IBM watsonx"
+        # Provider selectbox is the first one in the sidebar
+        provider_selector = at.sidebar.selectbox[0]
+        assert provider_selector.value == "watsonx"
 
         # Check if default model was also applied
-        model_selector = at.sidebar.selectbox[2]
+        model_selector = at.sidebar.selectbox[1]
         assert model_selector.value == "meta-llama/llama-3-3-70b-instruct"
 
 
@@ -79,6 +79,6 @@ def test_fallback_when_default_provider_invalid(mock_dual_provider_env):
 
     with patch("builtins.open", mock_open(read_data=json.dumps(config_data))):
         at = AppTest.from_file("app.py").run()
-        provider_selector = at.sidebar.selectbox[1]
-        # Should fall back to the first available (Ollama (Local))
-        assert provider_selector.value == "Ollama (Local)"
+        provider_selector = at.sidebar.selectbox[0]
+        # Should fall back to the first available (ollama)
+        assert provider_selector.value == "ollama"

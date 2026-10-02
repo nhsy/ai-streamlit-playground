@@ -1,0 +1,24 @@
+[theme]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "monospace"
+baseRadius = "large"
+buttonRadius = "medium"
+showSidebarBorder = true
+
+[theme.light]
+primaryColor = "#4f46e5"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f5f6fa"
+textColor = "#1f2333"
+
+[theme.light.sidebar]
+backgroundColor = "#f5f6fa"
+
+[theme.dark]
+primaryColor = "#818cf8"
+backgroundColor = "#0f1117"
+secondaryBackgroundColor = "#1a1d27"
+textColor = "#e6e8ef"
+
+[theme.dark.sidebar]
+backgroundColor = "#14161f"

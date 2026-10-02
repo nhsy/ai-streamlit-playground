@@ -2,17 +2,19 @@
 
 ![Build Status](https://github.com/nhsy/ai-streamlit-playground/actions/workflows/test.yml/badge.svg)
 
-This is a Streamlit application that interfaces with local Ollama models and IBM watsonx.ai cloud models.
+A Streamlit application for chatting with and transforming text using local Ollama models and cloud models from IBM watsonx.ai, Google Gemini and OpenRouter.
 
 ## Features
 
 - 🔄 **Multi-Provider Support**: Switch between local Ollama, IBM watsonx, Google Gemini, and OpenRouter
-- 💬 **Chat Interface**: Interactive chat with conversation history and file context
-- 📥 **Model Management**: Download new models directly from the UI with progress tracking
-- 📊 **Model Metadata**: Detailed tooltips showing size, parameter count, and quantization
-- 🔄 **Text Transformation**: Apply templates for common text operations
-- 📎 **File Upload**: Support for PDF, TXT, CSV, MD, PY, JSON, and more with `@[]` reference syntax
-- 🎛️ **Configurable Parameters**: Adjust temperature, top_p, and system prompts
+- 💬 **Chat**: Streaming chat with conversation history; attached files stay in context for follow-up questions
+- 📎 **File Attachments**: Attach PDF, DOCX, TXT, CSV, MD, PY, JSON and YAML files from the chat input, or reference local files with `@[path]`
+- 📤 **Export**: Copy a chat as Markdown, or download it as Markdown or HTML
+- 🔄 **Text Transformation**: Apply prompt templates to text, with streamed output
+- 📥 **Model Management**: Download Ollama models from the UI with progress tracking
+- 📊 **Model Metadata**: Tooltips showing size, parameter count and quantization
+- 🎛️ **Configurable Parameters**: Adjust temperature, top_p and the system prompt
+- 🎨 **Themed UI**: Light and dark themes in `.streamlit/config.toml`
 - 🔒 **Secure Credentials**: Environment-based configuration for API keys
 
 ## Quick Start
@@ -79,7 +81,7 @@ brew install ollama
    ```bash
    # Copy the example file
    cp .env.example .env
-   
+
    # Edit .env and add your credentials
    WATSONX_API_KEY=your-api-key-here
    WATSONX_PROJECT_ID=your-project-id-here
@@ -160,6 +162,8 @@ This project uses [Task](https://taskfile.dev/) to automate common commands.
 
 ## Usage
 
+The app has two pages, **Chat** and **Text Transformation**, listed at the top of the sidebar. The settings below them apply to both pages.
+
 ### Provider Selection
 
 In the sidebar, select your preferred provider:
@@ -177,24 +181,23 @@ The app will automatically detect which providers are available based on:
 ### Model Selection & Management
 
 - **Model Switcher**: Select from installed models. Hover over the info icon for details (size, params, quantization).
-- **Download from Library**: Use the "Pull New Model" expander to:
+- **Download from Library**: Use the "Pull new model" expander to:
   - Choose from suggested models optimized for your hardware (e.g., 16GB RAM).
   - Enter a custom model name from the Ollama library to download it.
   - Track download progress in real-time.
 
-### Chat Mode
+### Chat
 
-- Upload context files (PDF, TXT, etc.)
-- Enter your message in the chat input
-- Use `@[path/to/file]` syntax to include file contents in prompts
-- View streaming responses in real-time
+- Attach context files with the paperclip in the chat input
+- Use `@[path/to/file]` to include a local file's contents in a prompt. Paths are relative to the project folder. Paths outside it and hidden files (such as `.env`) are refused, and files are truncated at 200 KB.
+- Responses stream in real time. If a request fails, the error is shown and the message is not added to the history, so you can retry.
+- Use **Export** to copy the chat or download it, and **Reset** to clear the chat and system prompt
 
-### Text Transformation Mode
+### Text Transformation
 
 - Select a transformation template
 - Enter or paste your text
-- Click "Transform" to apply the template
-- Copy or use the transformed output
+- Click "Transform" to stream the result
 
 ## Configuration
 
@@ -204,10 +207,10 @@ Configure default provider, models, and templates:
 
 ```json
 {
-  "default_provider": "gemini",
+  "default_provider": "ollama",
   "providers": {
     "ollama": {
-      "default_model": "qwen2.5:7b"
+      "default_model": "gemma4"
     },
     "watsonx": {
       "default_model": "meta-llama/llama-3-3-70b-instruct"
@@ -216,7 +219,9 @@ Configure default provider, models, and templates:
       "default_model": "openrouter/auto",
       "models": {
          "openrouter/auto": "🤖 OpenRouter Auto (Free)",
-         "meta-llama/llama-3.3-70b-instruct:free": "🆓 Llama 3.3 70B (Free)"
+         "meta-llama/llama-3.3-70b-instruct:free": "🆓 Llama 3.3 70B (Free)",
+         "openai/gpt-oss-120b:free": "🆓 GPT-OSS 120B (Free)",
+         "qwen/qwen3-next-80b-a3b-instruct:free": "🆓 Qwen3 Next 80B (Free)"
       }
     },
     "gemini": {
@@ -232,6 +237,12 @@ Configure default provider, models, and templates:
   }
 }
 ```
+
+`default_provider` is a provider key: `ollama`, `watsonx`, `openrouter` or `gemini`. Text files in `templates/` are added as templates too; for example, `jira_story.txt` becomes "Jira Story".
+
+### Theme
+
+The light and dark themes are defined in `.streamlit/config.toml`. The app follows the browser's colour scheme.
 
 ### Environment Variables
 
@@ -267,14 +278,25 @@ If no providers are available, the app will display a configuration guide.
 
 ## Development
 
-The `docker-compose.yml` mounts the current directory to `/app` in the container, so changes to `app.py` will be reflected immediately (thanks to Streamlit's auto-reload).
+The `docker-compose.yml` mounts the current directory to `/app` in the container, so code changes are picked up immediately by Streamlit's auto-reload.
+
+### Project Layout
+
+- `app.py`: entry point. It renders the sidebar settings and the page navigation.
+- `views/chat.py`, `views/transform.py`: the two pages
+- `core.py`: config, cached provider access, prompt expansion, file reading and chat export
+- `providers/`: one class per LLM provider, implementing `BaseProvider`
+
+Provider availability is cached for 30 seconds, and model lists for 60 seconds.
 
 ### Running Tests
 
 ```bash
 task test
-# or: pytest tests/
+# or: PYTHONPATH=. uv run pytest --cov tests/
 ```
+
+`task test` reports coverage and fails if total coverage drops below 80% (configured in `pyproject.toml`).
 
 ## Troubleshooting
 
